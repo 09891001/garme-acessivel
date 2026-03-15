@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garme Acessível</title>
+    <link rel="stylesheet" href="css/estilo.css">
+</head>
+<body>
+
+    <header>
+        <h1>Garme Acessível</h1>
+        <div id="placar" aria-label="Placar de pontos">Pontos: 0</div>
+    </header>
+
+    <main>
+        <section id="area-desenho" role="img" aria-label="Quadro de desenho automático">
+            <canvas id="quadro"></canvas>
+        </section>
+
+        <div id="avisos" aria-live="polite"></div>
+
+        <section id="controles">
+            <label for="palpite">Qual é o desenho?</label>
+            <input type="text" id="palpite" placeholder="Digite aqui...">
+            <button id="btn-enviar">Enviar Palpite</button>
+        </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/desenho.js"></script>
+    <script src="js/jogo.js"></script>
+</body>
+</html>
