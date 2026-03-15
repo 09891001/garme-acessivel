@@ -1,9 +1,4 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
-// TODO: Add SDKs for Firebase products that you want to use
-// https://firebase.google.com/docs/web/setup#available-libraries
-
-// Your web app's Firebase configuration
+// Configuração oficial do seu Firebase
 const firebaseConfig = {
   apiKey: "AIzaSyBxav0baX6bucdYUlw1pRWOFcv9AwtqymY",
   authDomain: "garme-acessivel.firebaseapp.com",
@@ -13,5 +8,12 @@ const firebaseConfig = {
   appId: "1:69205141908:web:d3ce0b770f699c1a8ac781"
 };
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
+// Inicializa o Firebase garantindo que ele não tente carregar duas vezes
+try {
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        console.log("Firebase conectado com sucesso!");
+    }
+} catch (error) {
+    console.error("Erro ao inicializar o Firebase: ", error);
+}
