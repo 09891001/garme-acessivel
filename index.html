@@ -1,175 +1,235 @@
 <!DOCTYPE html>
-
 <html lang="pt-BR">
-
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garme Acessível - Time ATS | TOTVS</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    
+    <link rel="stylesheet" href="css/estilo.css">
+    <link rel="stylesheet" href="css/totvs.css">
 
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Sala de Espera | Garme Acessível</title>
-
-<link rel="stylesheet" href="css/estilo.css">
-
-<style>
-
-body{
-background:#0b2e6b;
-color:white;
-font-family:Arial;
-text-align:center;
-}
-
-.container{
-max-width:600px;
-margin:auto;
-margin-top:60px;
-background:white;
-color:black;
-padding:30px;
-border-radius:10px;
-}
-
-h1{
-color:#0b2e6b;
-}
-
-#lista-jogadores{
-margin-top:20px;
-border:1px solid #ddd;
-padding:10px;
-height:200px;
-overflow:auto;
-}
-
-#btn-play{
-margin-top:20px;
-height:60px;
-width:100%;
-font-size:20px;
-background:#28a745;
-color:white;
-border:none;
-border-radius:10px;
-cursor:pointer;
-}
-
-</style>
-
+    <style>
+        /* Ajustes de Layout para o Painel de Decisão */
+        .painel-escolha {
+            background: #ffffff;
+            padding: 25px;
+            border-radius: 12px;
+            margin: 20px auto;
+            border: 3px solid var(--totvs-dark);
+            max-width: 650px;
+            text-align: center;
+            box-shadow: var(--shadow);
+        }
+        .timer-badge {
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--white);
+            background: var(--cor-aviso);
+            padding: 10px 20px;
+            border-radius: 50px;
+            display: inline-block;
+            margin: 10px 0;
+            box-shadow: 0 4px 10px rgba(220, 53, 69, 0.3);
+        }
+        .container-modos {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .btn-opcao {
+            flex: 1;
+            padding: 20px;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+        }
+        .btn-opcao:hover { border-color: var(--totvs-active); background: #eef9ff; }
+        .btn-opcao.selecionado { 
+            border-color: var(--totvs-active); 
+            background: var(--totvs-active); 
+            color: white; 
+        }
+        .oculto { display: none !important; }
+        
+        #select-pronto {
+            width: 100%;
+            padding: 12px;
+            margin-top: 15px;
+            border-radius: 6px;
+            border: 1px solid #ccc;
+            font-size: 1rem;
+        }
+    </style>
 </head>
-
 <body>
 
-<div class="container">
+    <div id="tela-login">
+        <div class="card-login">
+            <h1>Garme Acessível</h1>
+            <p>Acesse com seu nome para o Time ATS</p>
+            <input type="text" id="nome-usuario" placeholder="Ex: Ugo Ventura">
+            <button onclick="entrarNaSala()" class="btn-iniciar" style="margin-top: 15px;">ENTRAR NO JOGO</button>
+        </div>
+    </div>
 
-<h1>Garme Acessível</h1>
+    <div id="jogo-principal" class="oculto">
+        <header style="text-align: center; margin-bottom: 20px;">
+            <div class="timer-badge">⏱️ <span id="tempo">03:00</span></div>
+            <div id="info-placar" style="font-size: 1.2rem; font-weight: bold; color: var(--totvs-dark);">
+                PONTOS TOTAIS: <span id="pontos">20</span>
+            </div>
+        </header>
 
-<h2>Time ATS - TOTVS</h2>
+        <div id="painel-decisao" class="painel-escolha oculto">
+            <h2>Sua vez, <span id="player-da-vez"></span>!</h2>
+            <p>Escolha como deseja criar seu desenho para o grupo:</p>
+            
+            <div class="container-modos">
+                <div id="modo-manual" class="btn-opcao" onclick="definirModo('manual')">
+                    <span style="font-size: 2rem;">✏️</span><br>Desenho Manual
+                </div>
+                <div id="modo-pronto" class="btn-opcao" onclick="definirModo('pronto')">
+                    <span style="font-size: 2rem;">🖼️</span><br>Desenho Pronto
+                </div>
+            </div>
 
-<p>Seja bem vindo à sala do jogo.</p>
+            <div id="lista-desenhos-prontos" class="oculto">
+                <select id="select-pronto">
+                    <option value="casa">🏠 Casa</option>
+                    <option value="carro">🚗 Carro</option>
+                    <option value="bola">⚽ Bola</option>
+                    <option value="sol">☀️ Sol</option>
+                    <option value="lua">🌙 Lua</option>
+                    <option value="arvore">🌳 Árvore</option>
+                    <option value="flor">🌸 Flor</option>
+                    <option value="estrela">⭐ Estrela</option>
+                    <option value="coracao">❤️ Coração</option>
+                    <option value="mesa">🪑 Mesa</option>
+                    <option value="computador">💻 Computador</option>
+                    <option value="cachorro">🐶 Cachorro</option>
+                    <option value="gato">🐱 Gato</option>
+                    <option value="peixe">🐟 Peixe</option>
+                    <option value="aviao">✈️ Avião</option>
+                    <option value="bicicleta">🚲 Bicicleta</option>
+                    <option value="relogio">⌚ Relógio</option>
+                    <option value="lampada">💡 Lâmpada</option>
+                </select>
+            </div>
 
-<p>Aguarde os outros jogadores entrarem.</p>
+            <button id="btn-play" onclick="comecarRodadaOficial()" style="margin-top: 25px; padding: 15px 40px; background: var(--cor-sucesso); color: white; border: none; border-radius: 8px; font-size: 1.3rem; cursor: pointer; font-weight: bold; width: 100%;">
+                INICIAR PARTIDA AGORA
+            </button>
+        </div>
 
-<div id="nome-jogador"></div>
+        <main style="display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; padding: 10px;">
+            <div class="lousa-area">
+                <canvas id="quadro" width="600" height="400" style="border: 4px solid var(--totvs-dark); background: white; border-radius: 8px; box-shadow: var(--shadow);"></canvas>
+            </div>
 
-<h3>Jogadores na sala</h3>
+            <aside class="chat-area" style="width: 350px; display: flex; flex-direction: column;">
+                <div id="janela-chat" style="height: 380px; overflow-y: auto; background: white; border-radius: 8px; padding: 15px; border: 1px solid #ddd; box-shadow: var(--shadow);">
+                    </div>
+                <div style="display: flex; gap: 5px; margin-top: 10px;">
+                    <input type="text" id="input-palpite" placeholder="Digite seu palpite..." style="flex: 1; padding: 12px; border-radius: 6px; border: 1px solid #ccc;">
+                    <button onclick="enviarPalpite()" style="padding: 12px 20px; background: var(--totvs-dark); color: white; border: none; border-radius: 6px; cursor: pointer;">ENVIAR</button>
+                </div>
+            </aside>
+        </main>
+    </div>
 
-<div id="lista-jogadores"></div>
+    <script src="js/config.js"></script>
+    <script src="js/desenho.js"></script>
+    <script src="js/jogo.js"></script>
 
-<button id="btn-play">
-INICIAR JOGO
-</button>
+    <script>
+        let timerAtivo;
+        let segundos = 180; // 3 Minutos
 
-</div>
+        function entrarNaSala() {
+            const nome = document.getElementById('nome-usuario').value.trim();
+            if (nome) {
+                localStorage.setItem("usuario_garme", nome);
+                document.getElementById('player-da-vez').innerText = nome;
+                document.getElementById('tela-login').classList.add('oculto');
+                document.getElementById('jogo-principal').classList.remove('oculto');
+                
+                // Abre escolha para o jogador atual (na lógica final o jogo.js decidirá se é a vez dele)
+                document.getElementById('painel-decisao').classList.remove('oculto');
+                
+                db.ref("chat").push({ nome: "SISTEMA", mensagem: `${nome} entrou na partida!` });
+            } else {
+                alert("Digite seu nome!");
+            }
+        }
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+        function definirModo(modo) {
+            const lista = document.getElementById('lista-desenhos-prontos');
+            const btnM = document.getElementById('modo-manual');
+            const btnP = document.getElementById('modo-pronto');
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+            localStorage.setItem("modo_atual", modo);
 
-<script src="js/config.js"></script>
+            if (modo === 'pronto') {
+                lista.classList.remove('oculto');
+                btnP.classList.add('selecionado');
+                btnM.classList.remove('selecionado');
+            } else {
+                lista.classList.add('oculto');
+                btnM.classList.add('selecionado');
+                btnP.classList.remove('selecionado');
+            }
+        }
 
-<script>
+        function comecarRodadaOficial() {
+            const modo = localStorage.getItem("modo_atual");
+            if (!modo) return alert("Escolha um modo primeiro!");
 
-const db = firebase.database()
+            // Limpeza total conforme regras
+            db.ref("chat").remove(); 
+            db.ref("desenho").remove();
+            
+            if (modo === 'pronto') {
+                const palavra = document.getElementById('select-pronto').value;
+                db.ref("desenho_atual").set({ nome: palavra, tipo: 'card' });
+                if(window.desenharObjetoPronto) desenharObjetoPronto(palavra);
+            } else {
+                db.ref("desenho_atual").set({ nome: "manual", tipo: 'manual' });
+            }
 
-const salaRef = db.ref("sala")
+            document.getElementById('painel-decisao').classList.add('oculto');
+            iniciarContagem();
+            
+            db.ref("chat").push({ nome: "SISTEMA", mensagem: "🚀 A rodada começou! Valendo pontos no chat." });
+        }
 
-const jogadoresRef = db.ref("jogadores")
+        function iniciarContagem() {
+            clearInterval(timerAtivo);
+            segundos = 180;
+            timerAtivo = setInterval(() => {
+                segundos--;
+                let m = Math.floor(segundos / 60);
+                let s = segundos % 60;
+                document.getElementById('tempo').innerText = `${m < 10 ? '0'+m : m}:${s < 10 ? '0'+s : s}`;
+                
+                if (segundos <= 0) {
+                    clearInterval(timerAtivo);
+                    db.ref("chat").push({ nome: "SISTEMA", mensagem: "⏰ Tempo acabou! Rodada encerrada." });
+                    location.reload(); 
+                }
+            }, 1000);
+        }
 
-let nome = localStorage.getItem("nomeJogador")
-
-if(!nome){
-
-nome = prompt("Digite seu nome")
-
-localStorage.setItem("nomeJogador",nome)
-
-}
-
-document.getElementById("nome-jogador").innerText =
-"Você entrou como: "+nome
-
-
-
-// registrar jogador
-
-jogadoresRef.child(nome).set({
-nome:nome
-})
-
-
-// atualizar lista jogadores
-
-jogadoresRef.on("value",snap=>{
-
-const dados = snap.val()
-
-const lista = document.getElementById("lista-jogadores")
-
-lista.innerHTML=""
-
-for(let jogador in dados){
-
-const div = document.createElement("div")
-
-div.innerText = dados[jogador].nome
-
-lista.appendChild(div)
-
-}
-
-})
-
-
-
-// botão play
-
-document.getElementById("btn-play").onclick=()=>{
-
-salaRef.set({
-status:"jogando"
-})
-
-}
-
-
-
-// se jogo iniciar
-
-salaRef.on("value",snap=>{
-
-const dados = snap.val()
-
-if(dados && dados.status==="jogando"){
-
-window.location.href="jogo.html"
-
-}
-
-})
-
-</script>
-
+        // Enter no chat
+        document.getElementById('input-palpite').addEventListener('keypress', e => {
+            if (e.key === 'Enter') enviarPalpite();
+        });
+    </script>
 </body>
-
 </html>

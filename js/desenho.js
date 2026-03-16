@@ -1,109 +1,114 @@
-const canvas = document.getElementById('quadro');
-const ctx = canvas.getContext('2d');
-const desenhoRef = firebase.database().ref('desenho');
+// ==========================================
+// DESENHO.JS - Controle do Quadro de Pintura
+// ==========================================
 
-// Configurações iniciais do pincel
-ctx.lineWidth = 3;
-ctx.lineCap = 'round';
-ctx.strokeStyle = '#000000';
+const canvas = document.getElementById("quadro");
+const ctx = canvas.getContext("2d");
+const dRef = firebase.database().ref("desenho");
+
+// Configurações do traço
+ctx.lineWidth = 4;
+ctx.lineCap = "round";
+ctx.strokeStyle = "#000000";
 
 let desenhando = false;
-let podeDesenhar = false;
 
-// Ajusta o tamanho do canvas para o tamanho visível (importante para mobile)
-canvas.width = canvas.offsetWidth;
-canvas.height = canvas.offsetHeight;
-
-// --- 1. VERIFICAÇÃO DE PERMISSÃO ---
-// Só permite desenhar se o status for 'jogando' e você for o desenhista
-function checarPermissao() {
-    dbRef.once('value', (snapshot) => {
-        const dados = snapshot.val();
-        podeDesenhar = (dados && dados.status === 'jogando' && dados.desenhista === meuNomeLogado);
-    });
-}
-
-// --- 2. DESENHO MANUAL (MOUSE E TOUCH) ---
-function iniciarDesenho(e) {
-    checarPermissao();
-    if (!podeDesenhar) return;
-    desenhando = true;
-    desenhar(e);
-}
-
-function pararDesenho() {
-    desenhando = false;
-    ctx.beginPath();
-}
-
-function desenhar(e) {
-    if (!desenhando || !podeDesenhar) return;
-
-    // Pega as coordenadas corretas (mouse ou touch)
-    const rect = canvas.getBoundingClientRect();
-    const x = (e.clientX || e.touches[0].clientX) - rect.left;
-    const y = (e.clientY || e.touches[0].clientY) - rect.top;
-
-    // Desenha localmente
-    ctx.lineTo(x, y);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-
-    // Envia para o Firebase para os outros verem em tempo real
-    desenhoRef.push({ x, y, movendo: true });
-}
-
-// Eventos de Mouse
-canvas.addEventListener('mousedown', iniciarDesenho);
-canvas.addEventListener('mouseup', pararDesenho);
-canvas.addEventListener('mousemove', desenhar);
-
-// Eventos de Touch (Celular)
-canvas.addEventListener('touchstart', (e) => { e.preventDefault(); iniciarDesenho(e); });
-canvas.addEventListener('touchend', (e) => { e.preventDefault(); pararDesenho(); });
-canvas.addEventListener('touchmove', (e) => { e.preventDefault(); desenhar(e); });
-
-// --- 3. SINCRONIZAÇÃO (PARA QUEM ESTÁ ASSISTINDO) ---
-desenhoRef.on('child_added', (snapshot) => {
+// --- SINCRONIZAÇÃO EM TEMPO REAL ---
+// Escuta novos pontos enviados ao Firebase
+dRef.on("child_added", (snapshot) => {
     const ponto = snapshot.val();
+    
     if (ponto.movendo) {
         ctx.lineTo(ponto.x, ponto.y);
         ctx.stroke();
         ctx.beginPath();
         ctx.moveTo(ponto.x, ponto.y);
     } else {
-        ctx.beginPath();
+        ctx.beginPath(); // Novo traço iniciado
     }
 });
 
-// Limpa o quadro quando o banco for resetado
-desenhoRef.on('child_removed', () => {
+// Limpa o quadro quando a rodada é reiniciada
+dRef.on("child_removed", () => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.beginPath();
 });
 
-// --- 4. DESENHO AUTOMÁTICO (CARDS) ---
-// Se o usuário clicar em um card azul, esta função faz o desenho sozinho
-function desenharAutomatico(tipo) {
-    if (!podeDesenhar) return;
-    
-    const desenhos = {
-        'casa': [{x:50,y:150}, {x:150,y:50}, {x:250,y:150}, {x:50,y:150}, {x:50,y:250}, {x:250,y:250}, {x:250,y:150}],
-        'bola': [{x:150,y:100}, {x:200,y:150}, {x:150,y:200}, {x:100,y:150}, {x:150,y:100}],
-        'sol': [{x:150,y:150}, {x:150,y:80}, {x:150,y:150}, {x:220,y:150}, {x:150,y:150}, {x:150,y:220}, {x:150,y:150}, {x:80,y:150}]
+// --- DESENHO MANUAL (MOUSE E TOUCH) ---
+function pegarCoordenadas(e) {
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.clientX || (e.touches ? e.touches[0].clientX : 0);
+    const clientY = e.clientY || (e.touches ? e.touches[0].clientY : 0);
+    return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
     };
+}
 
-    const pontos = desenhos[tipo] || [];
-    let i = 0;
+function iniciarDesenho(e) {
+    desenhando = true;
+    const coords = pegarCoordenadas(e);
+    dRef.push({ x: coords.x, y: coords.y, movendo: false });
+}
 
-    const intervalo = setInterval(() => {
-        if (i >= pontos.length) {
-            clearInterval(intervalo);
+function desenhar(e) {
+    if (!desenhando) return;
+    const coords = pegarCoordenadas(e);
+    dRef.push({ x: coords.x, y: coords.y, movendo: true });
+}
+
+function pararDesenho() {
+    desenhando = false;
+    dRef.push({ movendo: false });
+}
+
+// Eventos de Mouse
+canvas.addEventListener("mousedown", iniciarDesenho);
+canvas.addEventListener("mousemove", desenhar);
+canvas.addEventListener("mouseup", pararDesenho);
+canvas.addEventListener("mouseleave", pararDesenho);
+
+// Eventos de Touch (Mobile)
+canvas.addEventListener("touchstart", (e) => { e.preventDefault(); iniciarDesenho(e); });
+canvas.addEventListener("touchmove", (e) => { e.preventDefault(); desenhar(e); });
+canvas.addEventListener("touchend", pararDesenho);
+
+// --- MODELOS DE DESENHO AUTOMÁTICO (CARDS) ---
+function escolherDesenhoPronto(tipo) {
+    // Limpa o quadro atual antes de começar o modelo
+    dRef.remove();
+
+    let pontos = [];
+
+    if (tipo === 'casa') {
+        pontos = [{x:100,y:300},{x:100,y:150},{x:200,y:50},{x:300,y:150},{x:300,y:300},{x:100,y:300}];
+    } else if (tipo === 'bola') {
+        for(let i=0; i<=Math.PI*2; i+=0.4) {
+            pontos.push({x: 200 + Math.cos(i)*80, y: 200 + Math.sin(i)*80});
+        }
+    } else if (tipo === 'sol') {
+        pontos = [{x:200,y:200},{x:200,y:100},{x:200,y:200},{x:300,y:200},{x:200,y:200},{x:200,y:300},{x:200,y:200},{x:100,y:200}];
+    } else if (tipo === 'mesa') {
+        pontos = [{x:100,y:200},{x:300,y:200},{x:300,y:220},{x:100,y:220},{x:100,y:200},{x:120,y:220},{x:120,y:300},{x:280,y:220},{x:280,y:300}];
+    } else if (tipo === 'carro') {
+        pontos = [{x:100,y:250},{x:350,y:250},{x:350,y:200},{x:300,y:150},{x:150,y:150},{x:100,y:200},{x:100,y:250}];
+    } else if (tipo === 'coracao') {
+        pontos = [{x:200,y:150},{x:250,y:100},{x:300,y:150},{x:200,y:300},{x:100,y:150},{x:150,y:100},{x:200,y:150}];
+    }
+
+    // Envia os pontos com intervalo para criar o efeito de animação
+    let index = 0;
+    const animacao = setInterval(() => {
+        if (index >= pontos.length) {
+            clearInterval(animacao);
             return;
         }
-        const p = pontos[i];
-        desenhoRef.push({ x: p.x, y: p.y, movendo: true });
-        i++;
-    }, 100); // Desenha um ponto a cada 100ms
+        // O primeiro ponto do modelo vai como 'movendo: false' para iniciar o traço
+        dRef.push({ 
+            x: pontos[index].x, 
+            y: pontos[index].y, 
+            movendo: index !== 0 
+        });
+        index++;
+    }, 100);
 }

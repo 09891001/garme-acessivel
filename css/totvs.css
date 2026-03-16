@@ -1,0 +1,164 @@
+/* ==========================================
+   TEMA TOTVS & ATS - DESIGN PROFISSIONAL
+   ========================================== */
+
+:root {
+    --totvs-dark: #004b81;     /* Azul Escuro TOTVS */
+    --totvs-active: #0093d5;   /* Azul Ativo TOTVS */
+    --ats-accent: #ff8200;     /* Laranja Destaque ATS */
+    --bg-light: #f4f7f9;
+    --text-main: #333333;
+    --white: #ffffff;
+    --shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+body {
+    background-color: var(--bg-light);
+    color: var(--text-main);
+    overflow-x: hidden;
+}
+
+/* --- Menu/Navbar Animada --- */
+.navbar {
+    background: var(--totvs-dark);
+    padding: 1rem 2rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--white);
+    box-shadow: var(--shadow);
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.logo-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.badge-ats {
+    background: var(--ats-accent);
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: bold;
+    animation: pulse 2s infinite;
+}
+
+/* --- Main Layout --- */
+.log-container {
+    max-width: 800px;
+    margin: 2rem auto;
+    padding: 0 1rem;
+}
+
+.card {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+    box-shadow: var(--shadow);
+    border-left: 6px solid var(--totvs-active);
+    transform: translateY(20px);
+    animation: slideUp 0.6s forwards;
+}
+
+/* --- Estilização de Texto --- */
+h1, h2 {
+    color: var(--totvs-dark);
+    margin-bottom: 1rem;
+}
+
+.info-text {
+    font-size: 1.1rem;
+    line-height: 1.7;
+    margin-bottom: 1.5rem;
+}
+
+/* --- Lista de Presença Real-time (Log) --- */
+#lista-log {
+    background: #eef2f5;
+    border-radius: 8px;
+    padding: 1rem;
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #d1d9e0;
+}
+
+.log-entry {
+    background: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    margin-bottom: 6px;
+    font-size: 0.9rem;
+    border-left: 3px solid var(--ats-accent);
+    animation: fadeIn 0.4s ease-in;
+}
+
+/* --- Botão Principal Animado --- */
+.btn-iniciar {
+    display: block;
+    width: 100%;
+    padding: 1.2rem;
+    background: linear-gradient(135deg, var(--totvs-active), var(--totvs-dark));
+    color: white;
+    text-align: center;
+    text-decoration: none;
+    font-size: 1.4rem;
+    font-weight: bold;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: transform 0.3s, box-shadow 0.3s;
+    box-shadow: 0 6px 20px rgba(0, 75, 129, 0.3);
+}
+
+.btn-iniciar:hover {
+    transform: scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 75, 129, 0.4);
+}
+
+.btn-iniciar:active {
+    transform: scale(0.98);
+}
+
+/* --- Animações --- */
+@keyframes slideUp {
+    to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.05); }
+    100% { transform: scale(1); }
+}
+
+/* --- Responsivo --- */
+@media (max-width: 600px) {
+    .navbar {
+        flex-direction: column;
+        text-align: center;
+        gap: 10px;
+    }
+    
+    .card {
+        padding: 1.2rem;
+    }
+    
+    h1 { font-size: 1.5rem; }
+}
