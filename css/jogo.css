@@ -1,0 +1,188 @@
+/* global db, firebase */
+// ==========================================
+// JOGO.JS - Engine de Partida e Sincronia
+// ==========================================
+
+// 1. Variáveis Globais e Referências
+const nomeUsuario = localStorage.getItem("usuario_garme") || "Jogador Anônimo";
+const chatRef = db.ref("chat");
+const pontosRef = db.ref("pontos_globais");
+const statusRef = db.ref("status_partida");
+const mensagensExibidasNoJogo = new Set();
+let intervaloCronometro = null;
+
+// 2. Sincronização do Placar em Tempo Real
+pontosRef.on("value", (snapshot) => {
+    const totalPontos = snapshot.val() || 0;
+    const elementoPontos = document.getElementById("pontos");
+    if (elementoPontos) {
+        elementoPontos.innerText = totalPontos;
+    }
+});
+
+// 3. Lógica do Chat (Receber Mensagens e Validar Acertos)
+chatRef.on("child_added", (snapshot) => {
+    const data = snapshot.val();
+    const janelaChat = document.getElementById("janela-chat");
+    
+    if (!janelaChat) return;
+
+    const idMsg = snapshot.key;
+
+    if (!mensagensExibidasNoJogo.has(idMsg)) {
+        const div = document.createElement("div");
+        div.className = "log-entry"; 
+        
+        if (data.nome === "SISTEMA") {
+            div.style.borderLeftColor = "var(--totvs-active)";
+            div.style.backgroundColor = "#eef7ff";
+            div.style.fontWeight = "bold";
+        }
+
+        div.innerHTML = `<strong>${data.nome}:</strong> ${data.mensagem}`;
+        janelaChat.appendChild(div);
+        janelaChat.scrollTop = janelaChat.scrollHeight;
+        mensagensExibidasNoJogo.add(idMsg);
+    }
+});
+
+chatRef.on("value", (snapshot) => {
+    if (!snapshot.exists()) {
+        const janelaChat = document.getElementById("janela-chat");
+        if (janelaChat) janelaChat.innerHTML = "";
+        mensagensExibidasNoJogo.clear();
+    }
+});
+
+// 4. Lógica de Envio de Palpites
+function enviarPalpite() {
+    const input = document.getElementById("input-palpite");
+    if (!input) return;
+
+    const mensagem = input.value.trim();
+    if (mensagem === "") return;
+
+    chatRef.push({
+        nome: nomeUsuario,
+        mensagem: mensagem,
+        timestamp: Date.now()
+    });
+
+    statusRef.once("value", (snapshot) => {
+        const status = snapshot.val();
+        if (status && status.em_andamento && status.desenhista !== nomeUsuario) {
+            const palpiteNormal = mensagem.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+            const certaNormal = status.palavra_atual.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+
+            if (palpiteNormal === certaNormal) {
+                ganharPonto();
+            }
+        }
+    });
+
+    input.value = "";
+    input.focus();
+}
+
+// 5. Função de Pontuação
+function ganharPonto() {
+    pontosRef.transaction((valor) => (valor || 0) + 10);
+    chatRef.push({
+        nome: "SISTEMA",
+        mensagem: `🌟 ${nomeUsuario} ACERTOU a palavra!`,
+        timestamp: Date.now()
+    });
+    setTimeout(() => finalizarRodada("Palavra adivinhada!"), 2000);
+}
+
+// 6. Engine de Rodada e Cronômetro
+function engineIniciarRodada(palavra) {
+    db.ref("desenho").remove();
+    chatRef.remove();
+
+    statusRef.update({
+        palavra_atual: palavra,
+        desenhista: nomeUsuario,
+        em_andamento: true,
+        tempo_restante: 180, 
+        timestamp_inicio: Date.now()
+    });
+}
+
+statusRef.child("tempo_restante").on("value", (snapshot) => {
+    const tempo = snapshot.val();
+    const display = document.getElementById("cronometro");
+    if (display && tempo !== null) {
+        let min = Math.floor(tempo / 60);
+        let seg = tempo % 60;
+        display.innerText = `${min.toString().padStart(2, '0')}:${seg.toString().padStart(2, '0')}`;
+    }
+});
+
+statusRef.on("value", (snapshot) => {
+    const status = snapshot.val();
+    const menu = document.getElementById("menu-desenhista");
+    const labelStatus = document.getElementById("status-turno");
+
+    if (!status) return;
+
+    if (menu) {
+        if (status.desenhista === nomeUsuario && !status.em_andamento) {
+            menu.classList.remove("hidden");
+        } else {
+            menu.classList.add("hidden");
+        }
+    }
+
+    if (labelStatus) {
+        labelStatus.innerText = status.em_andamento ? `Desenhista: ${status.desenhista}` : "Aguardando Turno...";
+        labelStatus.style.background = status.em_andamento ? "var(--totvs-active)" : "#666";
+    }
+
+    if (status.desenhista === nomeUsuario && status.em_andamento) {
+        if (!intervaloCronometro) {
+            intervaloCronometro = setInterval(() => {
+                statusRef.child("tempo_restante").transaction((t) => {
+                    if (t <= 0) {
+                        clearInterval(intervaloCronometro);
+                        intervaloCronometro = null;
+                        finalizarRodada("Tempo esgotado!");
+                        return 0;
+                    }
+                    return t - 1;
+                });
+            }, 1000);
+        }
+    } else {
+        if (intervaloCronometro) {
+            clearInterval(intervaloCronometro);
+            intervaloCronometro = null;
+        }
+    }
+});
+
+// 7. Finalização
+function finalizarRodada(motivo) {
+    statusRef.update({
+        em_andamento: false,
+        palavra_atual: "",
+        tempo_restante: 0
+    });
+
+    chatRef.push({
+        nome: "SISTEMA",
+        mensagem: `🛑 Fim da rodada: ${motivo}`,
+        timestamp: Date.now()
+    });
+
+    if (typeof window.limparQuadro === 'function') window.limparQuadro();
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    const inputPalpite = document.getElementById("input-palpite");
+    if (inputPalpite) {
+        inputPalpite.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") enviarPalpite();
+        });
+    }
+});
