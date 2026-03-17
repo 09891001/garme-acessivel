@@ -1,0 +1,234 @@
+/* =========================================================
+   RESET E BASE (PADRÃO TOTVS ATS)
+========================================================= */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background-color: #f4f7f9;
+    color: #222;
+    overflow: hidden; /* Impede scroll da página inteira */
+    height: 100vh;
+}
+
+/* =========================================================
+   UTILITÁRIOS E ACESSIBILIDADE (FUNDAMENTAL PARA CEGOS)
+========================================================= */
+.hidden {
+    display: none !important;
+}
+
+/* Classe para textos que apenas o leitor de tela (NVDA/JAWS) deve ouvir */
+.sr-only {
+    position: absolute;
+    left: -9999px;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+}
+
+/* Feedback visual de acessibilidade para quem enxerga */
+#feedbackAcessivel {
+    background: #fff3cd;
+    color: #856404;
+    padding: 10px;
+    font-size: 14px;
+    border-bottom: 2px solid #ffeeba;
+    text-align: center;
+    font-weight: bold;
+}
+
+/* =========================================================
+   OVERLAY (SISTEMA DE MODAIS SOBREPOSTOS)
+========================================================= */
+.overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 75, 129, 0.95); /* Azul TOTVS com transparência */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+}
+
+.modal {
+    background: #ffffff;
+    padding: 24px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    text-align: center;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+    color: #222;
+}
+
+.modal-grande {
+    max-width: 700px;
+}
+
+.modal h1, .modal h2 {
+    margin-bottom: 15px;
+    color: #004b81;
+}
+
+/* =========================================================
+   BOTÕES ACESSÍVEIS (ALTA INTERATIVIDADE)
+========================================================= */
+button {
+    min-height: 48px; /* Tamanho mínimo para toque acessível */
+    padding: 12px 16px;
+    margin: 6px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-primary { background-color: #004b81; color: #fff; width: 100%; }
+.btn-success { background-color: #00d38d; color: #fff; width: 100%; }
+.btn-danger  { background-color: #ff4b4b; color: #fff; width: 100%; }
+
+button:hover { filter: brightness(1.1); }
+button:active { transform: scale(0.97); }
+button:focus { outline: 3px solid #00d38d; }
+
+/* =========================================================
+   LAYOUT DO JOGO (SINGLE PAGE)
+========================================================= */
+.container {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+}
+
+.header {
+    background-color: #004b81;
+    color: #fff;
+    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-weight: bold;
+    z-index: 10;
+}
+
+/* =========================================================
+   ÁREA DE DESENHO E CHAT
+========================================================= */
+.game-area {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.canvas-section {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    background: #e9ecef;
+}
+
+canvas {
+    background: #ffffff;
+    border: 4px solid #004b81;
+    border-radius: 8px;
+    max-width: 100%;
+    height: auto;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+
+.chat-section {
+    background: #fff;
+    border-top: 3px solid #004b81;
+    display: flex;
+    flex-direction: column;
+    height: 250px;
+}
+
+.chat-window {
+    flex: 1;
+    overflow-y: auto;
+    padding: 15px;
+    font-size: 14px;
+    background: #fdfdfd;
+}
+
+.chat-controls {
+    display: flex;
+    padding: 10px;
+    gap: 5px;
+    background: #eee;
+}
+
+.chat-controls input {
+    flex: 1;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+}
+
+/* =========================================================
+   GRID 5x5 (GALERIA DE DESENHOS AUTOMÁTICA)
+========================================================= */
+#listaDesenhos {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* Organiza em 5 colunas */
+    gap: 8px;
+    margin: 20px 0;
+    max-height: 350px;
+    overflow-y: auto;
+    padding: 5px;
+}
+
+.btn-desenho {
+    width: 100%;
+    height: 55px;
+    font-size: 11px;
+    background: #f1f3f5;
+    border: 1px solid #dee2e6;
+    color: #004b81;
+    text-transform: uppercase;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+}
+
+.btn-desenho:focus {
+    background: #00d38d;
+    color: white;
+    outline: none;
+}
+
+/* =========================================================
+   RESPONSIVIDADE (TABLET / DESKTOP)
+========================================================= */
+@media (min-width: 768px) {
+    .game-area {
+        flex-direction: row;
+    }
+
+    .canvas-section {
+        flex: 3;
+    }
+
+    .chat-section {
+        flex: 1;
+        height: auto;
+        border-top: none;
+        border-left: 3px solid #004b81;
+    }
+}

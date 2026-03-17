@@ -3,31 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teste GitHub Pages</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f2f5;
-        }
-        .card {
-            background: white;
-            padding: 2rem;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        h1 { color: #2ea44f; }
-    </style>
+    <title>Garme Acessível - Versão Final</title>
+    <link rel="stylesheet" href="css/stylo.css">
 </head>
 <body>
-    <div class="card">
-        <h1>✅ Site Online!</h1>
-        <p>O index.html foi carregado com sucesso no repositório <strong>garme-acessivel</strong>.</p>
+
+    <div id="narrador" class="sr-only" aria-live="polite"></div>
+
+    <div class="container">
+        
+        <header class="header">
+            <div class="logo">GARME ACESSÍVEL</div>
+            <div id="feedbackAcessivel">Aguardando login...</div>
+            <div class="user-badge" id="displayUsuario">Offline</div>
+        </header>
+
+        <div id="lobby" class="overlay">
+            <div class="modal">
+                <h1>Entrar no Jogo</h1>
+                <p>Como você quer ser chamado?</p>
+                <input type="text" id="nomeUsuario" placeholder="Digite seu nome..." 
+                       style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
+                <button id="btnIniciarPartida" class="btn-primary">INICIAR PARTIDA GERAL</button>
+            </div>
+        </div>
+
+        <div id="galeriaDesenhos" class="overlay" style="display: none;">
+            <div class="modal modal-grande">
+                <h2>O que vamos desenhar?</h2>
+                <p>Selecione um objeto abaixo para o robô começar:</p>
+                
+                <div id="listaDesenhos" class="grid-drawings"></div>
+                
+                <button onclick="document.getElementById('galeriaDesenhos').style.display='none'" class="btn-danger">
+                    CANCELAR
+                </button>
+            </div>
+        </div>
+
+        <main class="game-area">
+            
+            <section class="canvas-section">
+                <canvas id="quadro" width="800" height="500"></canvas>
+            </section>
+
+            <section class="chat-section">
+                <div class="chat-window" id="janelaChat">
+                    <p><strong>Sistema:</strong> Bem-vindo! Digite seu chute abaixo quando o desenho começar.</p>
+                </div>
+                
+                <div class="chat-controls">
+                    <input type="text" id="chutePalavra" placeholder="Seu palpite aqui...">
+                    <button onclick="enviarChute()" class="btn-success">ENVIAR</button>
+                </div>
+            </section>
+
+        </main>
     </div>
+
+    <script src="js/desenho.js"></script>
+    <script src="js/jogo.js"></script>
+
 </body>
 </html>
