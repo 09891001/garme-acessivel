@@ -1,12 +1,32 @@
 /* =========================================================
-   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO INTEGRAL)
-   REGRAS: 2 MINUTOS | FOCO ACESSÍVEL | GALERIA TELA CHEIA
+   GARME ACESSÍVEL - LÓGICA INTEGRAL COM FIREBASE
+   URL: https://09891001.github.io/garme-acessivel/
+   REGRAS: 16 PLAYERS | 2 MINUTOS | ACESSIBILIDADE TOTAL
 ========================================================= */
 
-let usuarioLogado = "";
-let tempoRestante = 120; // 2 minutos de rodada oficial
-let cronometroIntervalo = null;
-let palavraCerta = ""; 
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
+import { getDatabase, ref, set, onValue, update, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+
+// Configuração Oficial do seu Firebase
+const firebaseConfig = {
+  apiKey: "AIzaSyBxav0baX6bucdYUlw1pRWOFcv9AwtqymY",
+  authDomain: "garme-acessivel.firebaseapp.com",
+  databaseURL: "https://garme-acessivel-default-rtdb.firebaseio.com",
+  projectId: "garme-acessivel",
+  storageBucket: "garme-acessivel.firebasestorage.app",
+  messagingSenderId: "69205141908",
+  appId: "1:69205141908:web:d3ce0b770f699c1a8ac781"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+let meuId = null;
+let minhaInfo = { nome: "", modo: "", pontos: 0, palavra: "" };
+let jogadores = {};
+let tempoRestante = 120;
+let intervaloCronometro = null;
+let palavraDaRodada = "";
 let jogoIniciado = false;
 
 /**
@@ -14,215 +34,226 @@ let jogoIniciado = false;
  */
 document.addEventListener('DOMContentLoaded', () => {
     configurarInterfaceInicial();
-    configurarEventosTeclado();
+    ouvirJogadores();
+    ouvirEstadoDoJogo();
 });
 
 function configurarInterfaceInicial() {
-    // Vincula o clique do botão de login
-    const btnIniciar = document.getElementById('btnIniciarPartida');
-    if (btnIniciar) btnIniciar.onclick = realizarLogin;
+    const btnEntrar = document.getElementById('btnIniciarPartida');
+    if (btnEntrar) btnEntrar.onclick = realizarLogin;
     
-    // Estados iniciais de visibilidade
     document.getElementById('galeriaDesenhos').style.display = 'none';
     document.getElementById('btnConfirmarInicio').classList.add('hidden');
     
-    // O chat começa desativado até o início da rodada
-    const chatSection = document.querySelector('.chat-section');
-    if (chatSection) {
-        chatSection.style.opacity = "0.5";
-        chatSection.style.pointerEvents = "none";
-    }
-
-    comunicarAoNarrador("Sistema pronto. Digite seu nome e clique em entrar ou pressione Enter.");
+    comunicarAoNarrador("Sistema Garme Acessível pronto. Digite seu nome para entrar na sala.");
 }
 
 /**
- * Teclado (Enter) - Atalhos para agilizar a navegação
- */
-function configurarEventosTeclado() {
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const ativo = document.activeElement;
-            if (ativo.id === 'nomeUsuario') realizarLogin();
-            else if (ativo.id === 'chutePalavra') enviarChute();
-            else if (ativo.id === 'btnConfirmarInicio') confirmarInicioJogo();
-        }
-    });
-}
-
-/**
- * Login do Usuário
+ * LOGIN: Sincroniza sua entrada para todos os 16 jogadores
  */
 function realizarLogin() {
     const inputNome = document.getElementById('nomeUsuario');
-    usuarioLogado = inputNome ? inputNome.value.trim() : "";
+    const nome = inputNome ? inputNome.value.trim() : "";
     
-    if (!usuarioLogado) {
+    if (!nome) {
         alert("Por favor, digite seu nome.");
         return;
     }
 
-    // Esconde a tela de login
+    meuId = nome; 
+    minhaInfo.nome = nome;
+
+    // Salva no Firebase para que os outros te vejam
+    set(ref(db, 'jogadores/' + meuId), minhaInfo);
+    
     document.getElementById('lobby').style.display = 'none';
-    document.getElementById('displayUsuario').innerText = usuarioLogado;
-    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha Manual ou Automático para definir o desenho.`);
-}
-
-/**
- * DESENHO AUTOMÁTICO - Galeria em Tela Cheia
- */
-function alternarModoAutomatico() {
-    const galeria = document.getElementById('galeriaDesenhos');
-    const container = document.getElementById('listaDesenhos');
+    document.getElementById('displayUsuario').innerText = nome;
     
-    if (!galeria || !container) return;
-
-    // Exibe a galeria em tela cheia (escondendo os menus de fundo no CSS)
-    galeria.style.display = 'flex';
-    container.innerHTML = ""; 
-
-    if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
-        const itens = Object.keys(BIBLIOTECA_DESENHOS);
-        
-        itens.forEach((id, index) => {
-            const btn = document.createElement('button');
-            btn.innerText = id.toUpperCase();
-            btn.className = "btn-desenho";
-            btn.setAttribute("aria-label", `Selecionar desenho de ${id}`);
-            
-            // ID para foco automático no primeiro item
-            if (index === 0) btn.id = "focoInicialGaleria";
-
-            btn.onclick = (e) => {
-                e.preventDefault();
-                palavraCerta = id.toLowerCase();
-                galeria.style.display = 'none'; // Fecha e volta aos menus
-                
-                const btnOk = document.getElementById('btnConfirmarInicio');
-                btnOk.classList.remove('hidden');
-                btnOk.focus();
-                comunicarAoNarrador(`${id} selecionado. Clique no botão verde para iniciar a rodada.`);
-            };
-            container.appendChild(btn);
-        });
-
-        // ACESSIBILIDADE: Direciona o foco para o primeiro desenho imediatamente
-        setTimeout(() => {
-            const primeiroItem = document.getElementById('focoInicialGaleria');
-            if (primeiroItem) primeiroItem.focus();
-        }, 150);
-    }
+    comunicarAoNarrador(`Olá ${nome}, você entrou na sala. Escolha agora o seu modo de desenho.`);
 }
 
 /**
- * Modo Manual
+ * SINCRONIZAÇÃO: Monitora quem entra e quem está pronto
  */
-function modoManual() {
-    const dica = prompt("O que você vai desenhar?");
-    if (dica && dica.trim() !== "") {
-        palavraCerta = dica.toLowerCase().trim();
-        const btnOk = document.getElementById('btnConfirmarInicio');
+function ouvirJogadores() {
+    onValue(ref(db, 'jogadores'), (snapshot) => {
+        jogadores = snapshot.val() || {};
+        atualizarListaVisual();
+    });
+}
+
+function atualizarListaVisual() {
+    const listaArea = document.getElementById('listaParticipantes'); 
+    if (!listaArea) return;
+
+    listaArea.innerHTML = "<h3>Participantes na Sala:</h3>";
+    let contagemProntos = 0;
+    const ids = Object.keys(jogadores);
+
+    ids.forEach(id => {
+        const j = jogadores[id];
+        const status = j.modo ? "✅ Pronto" : "⏳ Escolhendo...";
+        if (j.modo) contagemProntos++;
+        listaArea.innerHTML += `<p><strong>${j.nome}</strong>: ${status}</p>`;
+    });
+
+    // O botão OK só habilita quando TODOS na sala escolherem o modo
+    const btnOk = document.getElementById('btnConfirmarInicio');
+    if (contagemProntos === ids.length && ids.length > 0) {
         btnOk.classList.remove('hidden');
-        btnOk.focus();
-        comunicarAoNarrador("Palavra manual definida. Clique em OK para começar.");
+        btnOk.onclick = dispararInicioSincronizado;
+        comunicarAoNarrador("Todos estão prontos! O mestre já pode iniciar a partida.");
+    } else {
+        btnOk.classList.add('hidden');
     }
 }
 
 /**
- * CONFIRMAR INÍCIO - Traz o quadro e o chat para frente
+ * ESCOLHA DE MODO: Manual ou Automático
  */
-function confirmarInicioJogo() {
-    if (!palavraCerta) {
-        alert("Escolha Manual ou Automático antes de iniciar!");
-        return;
+window.setModoJogador = function(modo) {
+    minhaInfo.modo = modo;
+    let palavraEscolhida = "";
+    
+    if (modo === 'manual') {
+        palavraEscolhida = prompt("O que você vai desenhar na sua vez?") || "objeto";
     }
 
-    if (jogoIniciado) return;
+    // Atualiza o Firebase para os outros saberem seu status
+    update(ref(db, 'jogadores/' + meuId), { 
+        modo: modo, 
+        palavra: palavraEscolhida.toLowerCase() 
+    });
 
+    document.querySelector('.controles-modo').classList.add('hidden');
+    comunicarAoNarrador(`Modo ${modo} salvo. Aguardando o início da rodada.`);
+}
+
+/**
+ * CONTROLE DE RODADA: Sincronização de 2 minutos
+ */
+function dispararInicioSincronizado() {
+    const primeiroId = Object.keys(jogadores)[0];
+    const palavra = jogadores[primeiroId].palavra || "casa";
+
+    set(ref(db, 'estadoJogo'), {
+        ativo: true,
+        desenhistaId: primeiroId,
+        palavra: palavra,
+        timestamp: Date.now()
+    });
+}
+
+function ouvirEstadoDoJogo() {
+    onValue(ref(db, 'estadoJogo'), (snapshot) => {
+        const estado = snapshot.val();
+        if (estado && estado.ativo) {
+            iniciarRodadaLocal(estado);
+        }
+    });
+}
+
+function iniciarRodadaLocal(estado) {
     jogoIniciado = true;
-    tempoRestante = 120; // Reseta cronômetro para 2 minutos
-    
-    // 1. Esconde os botões de configuração (Manual/Automático)
-    document.querySelector('.controles-modo').style.display = 'none';
-    document.getElementById('btnConfirmarInicio').classList.add('hidden');
+    palavraDaRodada = estado.palavra;
+    tempoRestante = 120;
 
-    // 2. Prioriza visualmente o Quadro
-    const quadro = document.getElementById('quadro');
-    quadro.style.zIndex = "50";
-
-    // 3. Ativa o Chat para interação
-    const chat = document.querySelector('.chat-section');
-    chat.style.opacity = "1";
-    chat.style.pointerEvents = "all";
-    chat.style.zIndex = "60";
+    // Ativa interface de jogo
+    document.querySelector('.chat-section').style.opacity = "1";
+    document.querySelector('.chat-section').style.pointerEvents = "all";
     document.getElementById('chutePalavra').focus();
 
-    comunicarAoNarrador("A rodada começou! O robô iniciou o desenho. O chat está ativo.");
-    iniciarCronometro();
-
-    // Dispara a lógica de desenho do robô (definida em biblioteca.js/robo.js)
-    if (typeof desenharObjetoAutomatico === "function") {
-        desenharObjetoAutomatico(palavraCerta);
+    // PRIVACIDADE: Esconde menus de quem não desenha
+    const areaControle = document.querySelector('.controles-modo');
+    if (meuId !== estado.desenhistaId) {
+        areaControle.style.display = 'none';
+        comunicarAoNarrador(`${estado.desenhistaId} está desenhando. Tente acertar no chat!`);
+    } else {
+        areaControle.style.display = 'flex';
+        comunicarAoNarrador("Sua vez de desenhar! O robô iniciará em instantes.");
+        if (typeof desenharObjetoAutomatico === "function") {
+            desenharObjetoAutomatico(palavraDaRodada);
+        }
     }
+
+    iniciarCronometro();
 }
 
-/**
- * Cronômetro Oficial (2 Minutos)
- */
 function iniciarCronometro() {
-    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
-    cronometroIntervalo = setInterval(() => {
+    if (intervaloCronometro) clearInterval(intervaloCronometro);
+    intervaloCronometro = setInterval(() => {
         tempoRestante--;
-        const fb = document.getElementById('feedbackAcessivel');
-        if (fb) fb.innerText = `Tempo Restante: ${tempoRestante}s`;
-
-        // Alertas de voz automáticos para acessibilidade
-        if (tempoRestante === 60) comunicarAoNarrador("Atenção: Falta 1 minuto!");
-        if (tempoRestante === 10) comunicarAoNarrador("Últimos 10 segundos!");
-
-        if (tempoRestante <= 0) {
-            finalizarRodada(`Fim de tempo! A palavra era ${palavraCerta.toUpperCase()}`);
-        }
+        document.getElementById('feedbackAcessivel').innerText = `Tempo: ${tempoRestante}s`;
+        
+        if (tempoRestante === 60) comunicarAoNarrador("Falta 1 minuto!");
+        if (tempoRestante <= 0) encerrarRodada();
     }, 1000);
 }
 
 /**
- * Lógica de Chutes no Chat
+ * CHAT E RANKING
  */
-function enviarChute() {
+window.enviarChute = function() {
     const input = document.getElementById('chutePalavra');
     const chute = input.value.toLowerCase().trim();
-    if (!chute) return;
-
-    if (chute === palavraCerta) {
-        finalizarRodada(`VITÓRIA! ${usuarioLogado} acertou a palavra: ${palavraCerta.toUpperCase()}`);
-    } else {
-        comunicarAoNarrador(`Incorreto. Tentaram ${chute}.`);
+    
+    if (chute === palavraDaRodada) {
+        minhaInfo.pontos += 10;
+        update(ref(db, 'jogadores/' + meuId), { pontos: minhaInfo.pontos });
+        comunicarAoNarrador("Você acertou! +10 pontos no ranking.");
+        encerrarRodada();
     }
     input.value = "";
 }
 
-/**
- * Finalização e Reset da Interface
- */
-function finalizarRodada(mensagem) {
-    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
-    if (typeof pararDesenhoRobo === "function") pararDesenhoRobo();
-
+function encerrarRodada() {
+    clearInterval(intervaloCronometro);
     jogoIniciado = false;
-    palavraCerta = ""; 
-
-    alert(mensagem);
-    comunicarAoNarrador(mensagem);
     
-    // Retorna os controles para permitir nova partida
-    document.querySelector('.controles-modo').style.display = 'flex';
-    document.querySelector('.chat-section').style.opacity = "0.5";
-    document.getElementById('feedbackAcessivel').innerText = "Aguardando próxima rodada...";
+    // Mostra o ranking básico no final
+    const ranking = Object.values(jogadores).sort((a, b) => b.pontos - a.pontos);
+    let msg = "Fim da rodada! Ranking:\n";
+    ranking.forEach((j, i) => msg += `${i+1}º ${j.nome}: ${j.pontos} pts\n`);
+    
+    alert(msg);
+    comunicarAoNarrador(msg);
 }
 
 /**
- * Motor de Voz (Narrador Acessível)
+ * GALERIA ACESSÍVEL
+ */
+window.alternarModoAutomatico = function() {
+    const galeria = document.getElementById('galeriaDesenhos');
+    const lista = document.getElementById('listaDesenhos');
+    
+    galeria.style.display = 'flex';
+    lista.innerHTML = ""; 
+
+    if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
+        Object.keys(BIBLIOTECA_DESENHOS).forEach((item, index) => {
+            const btn = document.createElement('button');
+            btn.innerText = item.toUpperCase();
+            btn.className = "btn-desenho";
+            if (index === 0) btn.id = "focoGaleria";
+
+            btn.onclick = () => {
+                const palavra = item.toLowerCase();
+                update(ref(db, 'jogadores/' + meuId), { modo: 'automatico', palavra: palavra });
+                galeria.style.display = 'none';
+                document.querySelector('.controles-modo').classList.add('hidden');
+            };
+            lista.appendChild(btn);
+        });
+        setTimeout(() => document.getElementById('focoGaleria')?.focus(), 100);
+    }
+}
+
+window.fecharGaleria = function() {
+    document.getElementById('galeriaDesenhos').style.display = 'none';
+}
+
+/**
+ * MOTOR DE VOZ
  */
 function comunicarAoNarrador(texto) {
     const n = document.getElementById('narrador');
@@ -230,12 +261,4 @@ function comunicarAoNarrador(texto) {
         n.innerText = "";
         setTimeout(() => { n.innerText = texto; }, 50);
     }
-}
-
-/**
- * Função para o botão Cancelar dentro da galeria
- */
-function fecharGaleria() {
-    document.getElementById('galeriaDesenhos').style.display = 'none';
-    comunicarAoNarrador("Seleção de desenho cancelada.");
 }
