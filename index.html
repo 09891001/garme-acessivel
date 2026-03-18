@@ -24,18 +24,18 @@
                 <p>Como você quer ser chamado?</p>
                 <input type="text" id="nomeUsuario" placeholder="Digite seu nome..." 
                        style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
-                <button id="btnIniciarPartida" class="btn-primary">INICIAR PARTIDA GERAL</button>
+                <button id="btnIniciarPartida" class="btn-primary">ENTRAR NA PARTIDA</button>
             </div>
         </div>
 
         <div id="galeriaDesenhos" class="overlay" style="display: none;">
             <div class="modal modal-grande">
-                <h2>O que vamos desenhar?</h2>
-                <p>Selecione um objeto abaixo para o robô começar:</p>
+                <h2>O que o robô deve desenhar?</h2>
+                <p>Escolha um objeto da biblioteca de 25 itens:</p>
                 
                 <div id="listaDesenhos" class="grid-drawings"></div>
                 
-                <button onclick="document.getElementById('galeriaDesenhos').style.display='none'" class="btn-danger">
+                <button onclick="document.getElementById('galeriaDesenhos').style.display='none'" class="btn-danger" style="margin-top: 20px;">
                     CANCELAR
                 </button>
             </div>
@@ -44,17 +44,26 @@
         <main class="game-area">
             
             <section class="canvas-section">
+                <div class="controles-modo" style="position: absolute; top: 80px; z-index: 100; display: flex; gap: 10px; width: 100%; justify-content: center;">
+                    <button onclick="modoManual()" class="btn-primary" style="background: #004b81;">DESENHO MANUAL</button>
+                    <button onclick="alternarModoAutomatico()" class="btn-primary" style="background: #004b81;">DESENHO AUTOMÁTICO</button>
+                    
+                    <button id="btnConfirmarInicio" onclick="confirmarInicioJogo()" class="btn-success hidden" style="border: 3px solid white;">
+                        OK - INICIAR RODADA (2 MIN)
+                    </button>
+                </div>
+
                 <canvas id="quadro" width="800" height="500"></canvas>
             </section>
 
             <section class="chat-section">
                 <div class="chat-window" id="janelaChat">
-                    <p><strong>Sistema:</strong> Bem-vindo! Digite seu chute abaixo quando o desenho começar.</p>
+                    <p><strong>Sistema:</strong> Bem-vindo! Aguarde o mestre definir o desenho.</p>
                 </div>
                 
                 <div class="chat-controls">
-                    <input type="text" id="chutePalavra" placeholder="Seu palpite aqui...">
-                    <button onclick="enviarChute()" class="btn-success">ENVIAR</button>
+                    <input type="text" id="chutePalavra" placeholder="Qual é o desenho?">
+                    <button onclick="enviarChute()" class="btn-success">CHUTAR</button>
                 </div>
             </section>
 

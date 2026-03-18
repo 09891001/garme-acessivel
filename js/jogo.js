@@ -1,146 +1,241 @@
 /* =========================================================
-   CONTROLE PRINCIPAL DO JOGO - VERSÃO FINAL ACESSÍVEL
+   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO COMPLETA)
+   MELHORIAS: DESENHO ANIMADO E FEEDBACK DE TEMPO POR VOZ
 ========================================================= */
 
 let usuarioLogado = "";
-let minhaVez = false;
-let estadoJogo = "esperando"; // estados: esperando, escolhendo, desenhando
+let tempoRestante = 120; // 2 Minutos Oficiais
+let cronometroIntervalo = null;
+let palavraCerta = ""; 
+let jogoIniciado = false;
 
 /**
- * Inicializa o jogo assim que o DOM estiver carregado.
+ * Inicialização do Sistema
  */
 document.addEventListener('DOMContentLoaded', () => {
     configurarInterfaceInicial();
 });
 
-/**
- * Configuração inicial dos elementos da interface.
- */
 function configurarInterfaceInicial() {
     const btnIniciar = document.getElementById('btnIniciarPartida');
     if (btnIniciar) {
-        btnIniciar.addEventListener('click', iniciarFluxoPartida);
+        btnIniciar.addEventListener('click', realizarLogin);
     }
     
-    // Garante que a galeria comece escondida para evitar poluição visual
+    // Garante que a galeria e o botão OK iniciem escondidos (image_9623a1.png)
     const galeria = document.getElementById('galeriaDesenhos');
-    if (galeria) {
-        galeria.style.display = 'none';
-    }
+    if (galeria) galeria.style.display = 'none';
+    
+    const btnOk = document.getElementById('btnConfirmarInicio');
+    if (btnOk) btnOk.classList.add('hidden');
+
+    comunicarAoNarrador("Sistema carregado. Digite seu nome para entrar na partida.");
 }
 
 /**
- * Inicia o fluxo da partida, validando o usuário e definindo papéis.
+ * Fluxo de Login
  */
-function iniciarFluxoPartida() {
+function realizarLogin() {
     const inputNome = document.getElementById('nomeUsuario');
-    usuarioLogado = inputNome ? inputNome.value : "";
+    usuarioLogado = inputNome ? inputNome.value.trim() : "";
     
     if (!usuarioLogado) {
         alert("Por favor, digite seu nome.");
         return;
     }
 
-    // Define o usuário atual como o desenhista conforme as regras de teste.
-    minhaVez = true; 
-    
     const lobby = document.getElementById('lobby');
-    if (lobby) {
-        lobby.style.display = 'none';
-    }
+    if (lobby) lobby.style.display = 'none';
+    
+    const displayUser = document.getElementById('displayUsuario');
+    if (displayUser) displayUser.innerText = usuarioLogado;
 
-    if (minhaVez) {
-        mostrarEscolhaDesenho();
-    } else {
-        comunicarAoNarrador("Aguardando o desenhista escolher um objeto.");
-    }
+    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha DESENHO MANUAL ou DESENHO AUTOMÁTICO.`);
 }
 
 /**
- * Exibe a galeria de botões para o desenhista escolher o objeto.
- * Limpa o container antes de gerar para evitar duplicados.
+ * MODO AUTOMÁTICO (ROBÔ)
  */
-function mostrarEscolhaDesenho() {
-    estadoJogo = "escolhendo";
+function alternarModoAutomatico() {
     const galeria = document.getElementById('galeriaDesenhos');
-    const containerBotoes = document.getElementById('listaDesenhos');
+    const container = document.getElementById('listaDesenhos');
     
-    if (!galeria || !containerBotoes) return;
+    if (!galeria || !container) return;
 
-    galeria.style.display = 'block';
-    containerBotoes.innerHTML = ""; // Limpeza essencial para acessibilidade
+    galeria.style.display = 'flex';
+    container.innerHTML = ""; 
 
-    // Percorre a biblioteca definida no arquivo js/desenho.js
     if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
-        Object.keys(BIBLIOTECA_DESENHOS).forEach(id => {
+        Object.keys(BIBLIOTECA_DESENHOS).forEach((id, index) => {
             const btn = document.createElement('button');
             btn.innerText = id.toUpperCase();
             btn.className = "btn-desenho";
+            btn.setAttribute('aria-label', "Robô desenha " + id);
             
-            // Atributo essencial para leitores de tela saberem o que o botão faz
-            btn.setAttribute('aria-label', "Desenhar " + id);
+            if (index === 0) btn.id = "focoGaleria";
             
-            btn.onclick = () => selecionarDesenho(id);
-            containerBotoes.appendChild(btn);
+            btn.onclick = () => {
+                palavraCerta = id.toLowerCase();
+                galeria.style.display = 'none';
+                comunicarAoNarrador(`Tema ${id} selecionado. Agora, clique no botão OK para iniciar.`);
+                
+                const btnOk = document.getElementById('btnConfirmarInicio');
+                if (btnOk) {
+                    btnOk.classList.remove('hidden');
+                    btnOk.focus();
+                }
+            };
+            container.appendChild(btn);
         });
     }
-
-    comunicarAoNarrador("Sua vez de desenhar. Escolha um objeto na lista de botões.");
-}
-
-/**
- * Finaliza a escolha e inicia o desenho automático no canvas.
- */
-function selecionarDesenho(id) {
-    estadoJogo = "desenhando";
     
-    // Esconde a galeria para focar a atenção no desenho e limpar o DOM
-    const galeria = document.getElementById('galeriaDesenhos');
-    if (galeria) {
-        galeria.style.display = 'none';
-    }
+    setTimeout(() => document.getElementById('focoGaleria')?.focus(), 150);
+}
 
-    // Aciona a lógica de desenho automático presente no js/desenho.js
-    if (typeof desenharObjetoAutomatico === "function") {
-        desenharObjetoAutomatico(id);
-    } else {
-        console.error("Erro: A função desenharObjetoAutomatico não foi encontrada.");
-        comunicarAoNarrador("Erro ao iniciar o desenho. Verifique os arquivos.");
+/**
+ * MODO MANUAL (DICA)
+ */
+function modoManual() {
+    const dica = prompt("Qual objeto você vai desenhar manualmente?");
+    if (dica && dica.trim() !== "") {
+        palavraCerta = dica.toLowerCase().trim();
+        comunicarAoNarrador(`Dica registrada. Clique em OK para iniciar o tempo de 2 minutos.`);
+        
+        const btnOk = document.getElementById('btnConfirmarInicio');
+        if (btnOk) {
+            btnOk.classList.remove('hidden');
+            btnOk.focus();
+        }
     }
 }
 
 /**
- * Processa a tentativa de adivinhação do usuário.
+ * DISPARO DA RODADA (BOTÃO OK)
+ */
+function confirmarInicioJogo() {
+    if (jogoIniciado || !palavraCerta) return;
+
+    jogoIniciado = true;
+    tempoRestante = 120;
+    
+    const btnOk = document.getElementById('btnConfirmarInicio');
+    if (btnOk) btnOk.classList.add('hidden');
+    
+    comunicarAoNarrador("A rodada começou! Valendo 2 minutos.");
+
+    iniciarCronometro();
+
+    // Se for automático, desenha com animação lenta
+    if (typeof BIBLIOTECA_DESENHOS !== 'undefined' && BIBLIOTECA_DESENHOS[palavraCerta]) {
+        desenharComAnimacao(BIBLIOTECA_DESENHOS[palavraCerta]);
+    }
+}
+
+/**
+ * MELHORIA: DESENHO ANIMADO E LENTO
+ * Usa 'async/await' para desenhar ponto a ponto com atraso
+ */
+async function desenharComAnimacao(pontos) {
+    const canvas = document.getElementById('quadro');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.beginPath();
+    ctx.lineWidth = 4;
+    ctx.strokeStyle = "#000";
+
+    for (let i = 0; i < pontos.length; i++) {
+        if (!jogoIniciado) break; // Para o desenho se alguém acertar a palavra
+
+        const p = pontos[i];
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+        
+        ctx.stroke();
+
+        // VELOCIDADE DA ANIMAÇÃO: 150ms entre cada ponto
+        await new Promise(resolve => setTimeout(resolve, 150));
+    }
+    
+    if (jogoIniciado) {
+        comunicarAoNarrador("O robô terminou o desenho. Podem chutar!");
+    }
+}
+
+/**
+ * MELHORIA: CRONÔMETRO COM ALERTAS VERBAIS (image_95bea4.png)
+ */
+function iniciarCronometro() {
+    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+
+    cronometroIntervalo = setInterval(() => {
+        tempoRestante--;
+        
+        const feedbackDisplay = document.getElementById('feedbackAcessivel');
+        if (feedbackDisplay) {
+            feedbackDisplay.innerText = `Tempo: ${tempoRestante}s`;
+        }
+
+        // ALERTAS DE VOZ OBRIGATÓRIOS
+        if (tempoRestante === 60) {
+            comunicarAoNarrador("Atenção: Falta apenas 1 minuto!");
+        } 
+        else if (tempoRestante === 30) {
+            comunicarAoNarrador("Últimos 30 segundos! O tempo está acabando.");
+        }
+        else if (tempoRestante <= 10 && tempoRestante > 0) {
+            comunicarAoNarrador(tempoRestante.toString()); // Contagem final 10, 9, 8...
+        }
+
+        if (tempoRestante <= 0) {
+            finalizarRodada("Tempo esgotado! A palavra era " + palavraCerta.toUpperCase());
+        }
+    }, 1000);
+}
+
+/**
+ * SISTEMA DE CHUTES E MONITORAMENTO
  */
 function enviarChute() {
     const input = document.getElementById('chutePalavra');
     if (!input) return;
 
     const chute = input.value.toLowerCase().trim();
-    
-    if (!chute) {
-        comunicarAoNarrador("Digite uma palavra antes de enviar.");
-        return;
+    if (!chute) return;
+
+    if (chute === palavraCerta) {
+        finalizarRodada(`VITÓRIA! ${usuarioLogado} acertou a palavra: ${palavraCerta.toUpperCase()}`);
+    } else {
+        comunicarAoNarrador(`Chute "${chute}" incorreto.`);
     }
 
-    comunicarAoNarrador("Você enviou o chute: " + chute);
     input.value = "";
 }
 
 /**
- * Função de ponte para atualizar o status de acessibilidade e visual.
+ * FINALIZAÇÃO
+ */
+function finalizarRodada(mensagem) {
+    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+    
+    jogoIniciado = false;
+    comunicarAoNarrador(mensagem);
+    alert(mensagem);
+    
+    const feedbackDisplay = document.getElementById('feedbackAcessivel');
+    if (feedbackDisplay) feedbackDisplay.innerText = "Rodada finalizada.";
+}
+
+/**
+ * MOTOR DE VOZ (ARIA-LIVE)
  */
 function comunicarAoNarrador(texto) {
     const narrador = document.getElementById('narrador');
-    const feedback = document.getElementById('feedbackAcessivel');
-    
-    // O 'narrador' é a div sr-only com aria-live para o leitor de tela
     if (narrador) {
-        narrador.innerText = texto;
-    }
-    
-    // O 'feedbackAcessivel' é o texto visível na tela
-    if (feedback) {
-        feedback.innerText = texto;
+        narrador.innerText = ""; 
+        setTimeout(() => {
+            narrador.innerText = texto;
+        }, 50);
     }
 }
