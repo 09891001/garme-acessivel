@@ -1,10 +1,10 @@
 /* =========================================================
-   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO COMPLETA)
-   MELHORIAS: DESENHO ANIMADO E FEEDBACK DE TEMPO POR VOZ
+   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO INTEGRAL)
+   REGRAS: DESENHO LENTO (1 MIN) + NARRAÇÃO EM TEMPO REAL
 ========================================================= */
 
 let usuarioLogado = "";
-let tempoRestante = 120; // 2 Minutos Oficiais
+let tempoRestante = 120; // 2 minutos oficiais
 let cronometroIntervalo = null;
 let palavraCerta = ""; 
 let jogoIniciado = false;
@@ -14,6 +14,7 @@ let jogoIniciado = false;
  */
 document.addEventListener('DOMContentLoaded', () => {
     configurarInterfaceInicial();
+    configurarFeedbackManual();
 });
 
 function configurarInterfaceInicial() {
@@ -22,7 +23,7 @@ function configurarInterfaceInicial() {
         btnIniciar.addEventListener('click', realizarLogin);
     }
     
-    // Garante que a galeria e o botão OK iniciem escondidos (image_9623a1.png)
+    // Inicia com interface limpa conforme aprovado
     const galeria = document.getElementById('galeriaDesenhos');
     if (galeria) galeria.style.display = 'none';
     
@@ -50,11 +51,11 @@ function realizarLogin() {
     const displayUser = document.getElementById('displayUsuario');
     if (displayUser) displayUser.innerText = usuarioLogado;
 
-    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha DESENHO MANUAL ou DESENHO AUTOMÁTICO.`);
+    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha DESENHO MANUAL ou AUTOMÁTICO.`);
 }
 
 /**
- * MODO AUTOMÁTICO (ROBÔ)
+ * MODO AUTOMÁTICO (ROBÔ MESTRE)
  */
 function alternarModoAutomatico() {
     const galeria = document.getElementById('galeriaDesenhos');
@@ -77,7 +78,7 @@ function alternarModoAutomatico() {
             btn.onclick = () => {
                 palavraCerta = id.toLowerCase();
                 galeria.style.display = 'none';
-                comunicarAoNarrador(`Tema ${id} selecionado. Agora, clique no botão OK para iniciar.`);
+                comunicarAoNarrador(`Tema ${id} selecionado. Clique em OK para o robô começar.`);
                 
                 const btnOk = document.getElementById('btnConfirmarInicio');
                 if (btnOk) {
@@ -88,18 +89,17 @@ function alternarModoAutomatico() {
             container.appendChild(btn);
         });
     }
-    
     setTimeout(() => document.getElementById('focoGaleria')?.focus(), 150);
 }
 
 /**
- * MODO MANUAL (DICA)
+ * MODO MANUAL (DESENHO LIVRE)
  */
 function modoManual() {
     const dica = prompt("Qual objeto você vai desenhar manualmente?");
     if (dica && dica.trim() !== "") {
         palavraCerta = dica.toLowerCase().trim();
-        comunicarAoNarrador(`Dica registrada. Clique em OK para iniciar o tempo de 2 minutos.`);
+        comunicarAoNarrador(`Dica registrada. O tempo é livre para desenhar. Clique em OK para começar.`);
         
         const btnOk = document.getElementById('btnConfirmarInicio');
         if (btnOk) {
@@ -109,8 +109,32 @@ function modoManual() {
     }
 }
 
+function configurarFeedbackManual() {
+    const canvas = document.getElementById('quadro');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let desenhando = false;
+
+    canvas.addEventListener('mousedown', () => { 
+        desenhando = true; 
+        ctx.beginPath(); 
+    });
+    
+    canvas.addEventListener('mouseup', () => { 
+        desenhando = false; 
+        if (jogoIniciado) comunicarAoNarrador("Traço finalizado no quadro."); 
+    });
+
+    canvas.addEventListener('mousemove', (e) => {
+        if (!desenhando) return;
+        ctx.lineWidth = 4;
+        ctx.lineTo(e.offsetX, e.offsetY);
+        ctx.stroke();
+    });
+}
+
 /**
- * DISPARO DA RODADA (BOTÃO OK)
+ * DISPARO DA RODADA
  */
 function confirmarInicioJogo() {
     if (jogoIniciado || !palavraCerta) return;
@@ -125,46 +149,51 @@ function confirmarInicioJogo() {
 
     iniciarCronometro();
 
-    // Se for automático, desenha com animação lenta
+    // Se for automático, desenha lentamente em 1 minuto com narração passo a passo
     if (typeof BIBLIOTECA_DESENHOS !== 'undefined' && BIBLIOTECA_DESENHOS[palavraCerta]) {
-        desenharComAnimacao(BIBLIOTECA_DESENHOS[palavraCerta]);
+        executarDesenhoAnimado(BIBLIOTECA_DESENHOS[palavraCerta]);
     }
 }
 
 /**
- * MELHORIA: DESENHO ANIMADO E LENTO
- * Usa 'async/await' para desenhar ponto a ponto com atraso
+ * ANIMAÇÃO DO ROBÔ: TERMINA EM 1 MINUTO COM FEEDBACK PARA O CEGO
  */
-async function desenharComAnimacao(pontos) {
+async function executarDesenhoAnimado(objeto) {
     const canvas = document.getElementById('quadro');
-    if (!canvas) return;
     const ctx = canvas.getContext('2d');
-    
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.beginPath();
     ctx.lineWidth = 4;
-    ctx.strokeStyle = "#000";
 
-    for (let i = 0; i < pontos.length; i++) {
-        if (!jogoIniciado) break; // Para o desenho se alguém acertar a palavra
+    // Calcula intervalo para durar exatamente 60 segundos (1 minuto)
+    const totalPontos = objeto.pontos.length;
+    const intervaloMs = Math.floor(60000 / totalPontos);
 
-        const p = pontos[i];
+    for (let i = 0; i < objeto.pontos.length; i++) {
+        if (!jogoIniciado) break;
+
+        const p = objeto.pontos[i];
+        
+        // Narração síncrona de cada etapa do desenho para o analista cego
+        if (objeto.etapas && objeto.etapas[i]) {
+            comunicarAoNarrador(objeto.etapas[i]);
+        }
+
         if (i === 0) ctx.moveTo(p.x, p.y);
         else ctx.lineTo(p.x, p.y);
         
         ctx.stroke();
 
-        // VELOCIDADE DA ANIMAÇÃO: 150ms entre cada ponto
-        await new Promise(resolve => setTimeout(resolve, 150));
+        await new Promise(resolve => setTimeout(resolve, intervaloMs));
     }
     
     if (jogoIniciado) {
-        comunicarAoNarrador("O robô terminou o desenho. Podem chutar!");
+        comunicarAoNarrador("O robô terminou o desenho! Resta 1 minuto para as tentativas finais.");
     }
 }
 
 /**
- * MELHORIA: CRONÔMETRO COM ALERTAS VERBAIS (image_95bea4.png)
+ * CRONÔMETRO COM ALERTAS VERBAIS OBRIGATÓRIOS
  */
 function iniciarCronometro() {
     if (cronometroIntervalo) clearInterval(cronometroIntervalo);
@@ -173,19 +202,16 @@ function iniciarCronometro() {
         tempoRestante--;
         
         const feedbackDisplay = document.getElementById('feedbackAcessivel');
-        if (feedbackDisplay) {
-            feedbackDisplay.innerText = `Tempo: ${tempoRestante}s`;
-        }
+        if (feedbackDisplay) feedbackDisplay.innerText = `Tempo: ${tempoRestante}s`;
 
-        // ALERTAS DE VOZ OBRIGATÓRIOS
         if (tempoRestante === 60) {
-            comunicarAoNarrador("Atenção: Falta apenas 1 minuto!");
+            comunicarAoNarrador("Atenção: Falta 1 minuto!");
         } 
         else if (tempoRestante === 30) {
             comunicarAoNarrador("Últimos 30 segundos! O tempo está acabando.");
         }
         else if (tempoRestante <= 10 && tempoRestante > 0) {
-            comunicarAoNarrador(tempoRestante.toString()); // Contagem final 10, 9, 8...
+            comunicarAoNarrador(tempoRestante.toString());
         }
 
         if (tempoRestante <= 0) {
@@ -195,7 +221,7 @@ function iniciarCronometro() {
 }
 
 /**
- * SISTEMA DE CHUTES E MONITORAMENTO
+ * SISTEMA DE CHUTES
  */
 function enviarChute() {
     const input = document.getElementById('chutePalavra');
@@ -207,35 +233,26 @@ function enviarChute() {
     if (chute === palavraCerta) {
         finalizarRodada(`VITÓRIA! ${usuarioLogado} acertou a palavra: ${palavraCerta.toUpperCase()}`);
     } else {
-        comunicarAoNarrador(`Chute "${chute}" incorreto.`);
+        comunicarAoNarrador(`Chute incorreto.`);
     }
 
     input.value = "";
 }
 
-/**
- * FINALIZAÇÃO
- */
 function finalizarRodada(mensagem) {
     if (cronometroIntervalo) clearInterval(cronometroIntervalo);
-    
     jogoIniciado = false;
     comunicarAoNarrador(mensagem);
     alert(mensagem);
-    
-    const feedbackDisplay = document.getElementById('feedbackAcessivel');
-    if (feedbackDisplay) feedbackDisplay.innerText = "Rodada finalizada.";
+    if (document.getElementById('feedbackAcessivel')) {
+        document.getElementById('feedbackAcessivel').innerText = "Rodada finalizada.";
+    }
 }
 
-/**
- * MOTOR DE VOZ (ARIA-LIVE)
- */
 function comunicarAoNarrador(texto) {
     const narrador = document.getElementById('narrador');
     if (narrador) {
         narrador.innerText = ""; 
-        setTimeout(() => {
-            narrador.innerText = texto;
-        }, 50);
+        setTimeout(() => { narrador.innerText = texto; }, 50);
     }
 }
