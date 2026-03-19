@@ -1,12 +1,13 @@
 /* =========================================================
-   GARME ACESSÍVEL - CÓDIGO INTEGRAL (JOGO.JS)
-   COMPATÍVEL COM NARRAÇÃO E REGRAS OFICIAIS
+   GARME ACESSÍVEL - LÓGICA MULTIPLAYER COM LOGS E PRESENÇA
+   REGRAS: 16 PLAYERS | 120 SEGUNDOS | ACESSIBILIDADE TOTAL
 ========================================================= */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, push, onChildAdded, remove } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+import { getDatabase, ref, set, onValue, update, push, onChildAdded, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
 
-// Configuração do Firebase
+console.log("🚀 Sistema Iniciado: Carregando Firebase...");
+
 const firebaseConfig = {
   apiKey: "AIzaSyBxav0baX6bucdYUlw1pRWOFcv9AwtqymY",
   authDomain: "garme-acessivel.firebaseapp.com",
@@ -20,17 +21,14 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const db = getDatabase(app);
 
-// Variáveis de Controle
 let meuId = null;
 let minhaInfo = { nome: "", modo: "", pontos: 0, palavra: "" };
-let jogadores = {};
-let tempoRestante = 120; // Regra: 2 minutos
-let intervaloCronometro = null;
+let jogadoresConectados = {};
 let palavraDaRodada = "";
+let intervaloCronometro = null;
 
 /**
- * ACESSIBILIDADE: COMUNICAÇÃO COM NARRADOR
- * Envia texto para a div aria-live
+ * ACESSIBILIDADE: NARRAÇÃO
  */
 function comunicarAoNarrador(texto) {
     const n = document.getElementById('narrador');
@@ -40,67 +38,67 @@ function comunicarAoNarrador(texto) {
     }
 }
 
-/**
- * EXPOSIÇÃO GLOBAL (window)
- * Resolve o erro "is not defined" ao usar type="module"
- */
+// --- FUNÇÕES GLOBAIS (WINDOW) ---
 
 window.realizarLogin = function() {
     const inputNome = document.getElementById('nomeUsuario');
     const nome = inputNome ? inputNome.value.trim() : "";
     
     if (!nome) {
-        alert("Por favor, digite seu nome.");
+        console.warn("⚠️ Tentativa de login sem nome.");
         return;
     }
 
     meuId = nome; 
     minhaInfo.nome = nome;
 
-    // Registra o jogador no Firebase (suporta até 16)
-    set(ref(db, 'jogadores/' + meuId), minhaInfo);
+    console.log(`👤 Login: Tentando entrar como ${nome}...`);
+
+    const playerRef = ref(db, 'jogadores/' + meuId);
+    
+    // LIMPEZA DE FANTASMAS: Remove do Firebase se o usuário fechar a aba
+    onDisconnect(playerRef).remove();
+
+    update(playerRef, minhaInfo)
+        .then(() => console.log("✅ Login realizado e persistido no Firebase."))
+        .catch(err => console.error("❌ Erro ao salvar login:", err));
     
     document.getElementById('lobby').style.display = 'none';
     document.getElementById('displayUsuario').innerText = nome;
-    
-    comunicarAoNarrador(`Olá ${nome}, login realizado com sucesso.`);
+    comunicarAoNarrador(`Login realizado. Olá ${nome}.`);
 };
 
 window.modoManual = function() {
     const p = prompt("O que você vai desenhar?");
     if (p) {
-        minhaInfo.modo = 'manual';
-        minhaInfo.palavra = p.toLowerCase().trim();
-        update(ref(db, 'jogadores/' + meuId), { modo: 'manual', palavra: minhaInfo.palavra });
-        document.querySelector('.controles-modo').classList.add('hidden');
-        comunicarAoNarrador(`Modo manual. Você desenhará: ${minhaInfo.palavra}.`);
+        const palavra = p.toLowerCase().trim();
+        update(ref(db, 'jogadores/' + meuId), { modo: 'manual', palavra: palavra });
+        console.log(`✍️ Modo Manual: Palavra definida -> ${palavra}`);
     }
 };
 
 window.alternarModoAutomatico = function() {
     const galeria = document.getElementById('galeriaDesenhos');
     const lista = document.getElementById('listaDesenhos');
-    
     galeria.style.display = 'flex';
     lista.innerHTML = ""; 
 
-    // Verifica se a biblioteca em desenho.js está carregada
+    console.log("🤖 Abrindo galeria de desenhos automáticos...");
+
     if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
         Object.keys(BIBLIOTECA_DESENHOS).forEach((item) => {
             const btn = document.createElement('button');
             btn.innerText = item.toUpperCase();
             btn.className = "btn-desenho";
-
             btn.onclick = () => {
-                minhaInfo.modo = 'automatico';
-                minhaInfo.palavra = item.toLowerCase();
-                update(ref(db, 'jogadores/' + meuId), { modo: 'automatico', palavra: minhaInfo.palavra });
+                update(ref(db, 'jogadores/' + meuId), { modo: 'automatico', palavra: item.toLowerCase() });
                 galeria.style.display = 'none';
-                document.querySelector('.controles-modo').classList.add('hidden');
-                comunicarAoNarrador(`Modo automático selecionado. O robô desenhará: ${item}.`);
+                console.log(`🤖 Modo Automático: Escolhido -> ${item}`);
             };
             lista.appendChild(btn);
         });
+    } else {
+        console.error("❌ Erro: BIBLIOTECA_DESENHOS não encontrada.");
     }
 };
 
@@ -109,50 +107,56 @@ window.enviarChute = function() {
     const chute = input ? input.value.toLowerCase().trim() : "";
     
     if (chute === palavraDaRodada && palavraDaRodada !== "") {
+        console.log("🎉 Acerto detectado!");
         minhaInfo.pontos += 10;
         update(ref(db, 'jogadores/' + meuId), { pontos: minhaInfo.pontos });
-        comunicarAoNarrador("Parabéns! Você acertou e ganhou 10 pontos.");
-        encerrarRodada();
+        comunicarAoNarrador("Parabéns! Você acertou.");
+        finalizarRodada();
     } else {
-        push(ref(db, 'chat'), { usuario: meuId || "Visitante", mensagem: chute });
+        push(ref(db, 'chat'), { usuario: meuId || "Anônimo", mensagem: chute });
     }
     if (input) input.value = "";
 };
 
-/**
- * SINCRONIZAÇÃO EM TEMPO REAL
- */
+// --- SINCRONIZAÇÃO E REGRAS ---
 
-// Monitora a lista de jogadores e libera o botão de início
 onValue(ref(db, 'jogadores'), (snapshot) => {
-    jogadores = snapshot.val() || {};
-    const ids = Object.keys(jogadores);
-    let prontos = 0;
+    jogadoresConectados = snapshot.val() || {};
+    const ids = Object.keys(jogadoresConectados);
+    
+    console.log(`👥 Atualização de Sala: ${ids.length} online.`);
 
-    ids.forEach(id => {
-        if (jogadores[id].modo) prontos++;
-    });
+    const nomes = ids.map(id => jogadoresConectados[id].nome).join(", ");
+    document.getElementById('feedbackAcessivel').innerText = `Online: ${nomes}`;
 
     const btnOk = document.getElementById('btnConfirmarInicio');
-    if (btnOk && prontos > 0) {
+    
+    // Identifica quem definiu o desenho (Mestre)
+    let mestreId = ids.find(id => jogadoresConectados[id] && jogadoresConectados[id].modo !== "");
+    
+    if (ids.length >= 2 && mestreId) {
+        console.log("🔘 Botão de Iniciar Liberado.");
         btnOk.classList.remove('hidden');
         btnOk.onclick = () => {
-            // Define o desenhista e inicia para todos
+            console.log("🏁 Disparando rodada oficial...");
             set(ref(db, 'estadoJogo'), {
                 ativo: true,
-                desenhistaId: ids[0],
-                palavra: jogadores[ids[0]].palavra
+                desenhistaId: mestreId,
+                palavra: jogadoresConectados[mestreId].palavra
             });
         };
+    } else {
+        btnOk.classList.add('hidden');
     }
 });
 
-// Monitora o estado da rodada
 onValue(ref(db, 'estadoJogo'), (snapshot) => {
     const estado = snapshot.val();
     if (estado && estado.ativo) {
+        console.log("🎮 Partida em andamento...");
         palavraDaRodada = estado.palavra;
-        // Se eu for o desenhista, inicia o desenho automático se for o caso
+        document.querySelector('.controles-modo').classList.add('hidden');
+        
         if (meuId === estado.desenhistaId && typeof desenharObjetoAutomatico === "function") {
             desenharObjetoAutomatico(palavraDaRodada);
         }
@@ -160,7 +164,37 @@ onValue(ref(db, 'estadoJogo'), (snapshot) => {
     }
 });
 
-// Atualiza o Chat
+function iniciarCronometro() {
+    let tempo = 120; // 2 minutos
+    if (intervaloCronometro) clearInterval(intervaloCronometro);
+    
+    intervaloCronometro = setInterval(() => {
+        tempo--;
+        const fb = document.getElementById('feedbackAcessivel');
+        if (fb) fb.innerText = `Tempo: ${tempo}s | Jogador: ${minhaInfo.nome}`;
+        
+        if (tempo <= 0) {
+            console.log("⏰ Tempo esgotado.");
+            finalizarRodada();
+        }
+    }, 1000);
+}
+
+function finalizarRodada() {
+    clearInterval(intervaloCronometro);
+    console.log("🏁 Rodada Finalizada.");
+    
+    if (meuId) {
+        update(ref(db, 'jogadores/' + meuId), { modo: "", palavra: "" });
+    }
+    
+    set(ref(db, 'estadoJogo'), { ativo: false });
+    remove(ref(db, 'chat'));
+    document.querySelector('.controles-modo').classList.remove('hidden');
+    comunicarAoNarrador("Fim da rodada. Verifiquem o chat.");
+}
+
+// Chat
 onChildAdded(ref(db, 'chat'), (snapshot) => {
     const msg = snapshot.val();
     const janela = document.getElementById('janelaChat');
@@ -171,36 +205,3 @@ onChildAdded(ref(db, 'chat'), (snapshot) => {
         janela.scrollTop = janela.scrollHeight;
     }
 });
-
-/**
- * REGRAS: CRONÔMETRO E FINALIZAÇÃO
- */
-
-function iniciarCronometro() {
-    tempoRestante = 120; // 2 minutos
-    if (intervaloCronometro) clearInterval(intervaloCronometro);
-    
-    intervaloCronometro = setInterval(() => {
-        tempoRestante--;
-        const fb = document.getElementById('feedbackAcessivel');
-        if (fb) fb.innerText = `Tempo: ${tempoRestante}s`;
-        
-        if (tempoRestante <= 0) {
-            encerrarRodada();
-        }
-    }, 1000);
-}
-
-function encerrarRodada() {
-    clearInterval(intervaloCronometro);
-    comunicarAoNarrador("A rodada terminou.");
-    
-    // Reseta estado local para nova rodada
-    if (meuId) {
-        update(ref(db, 'jogadores/' + meuId), { modo: "", palavra: "" });
-    }
-    
-    // Finaliza estado no Firebase e limpa chat
-    set(ref(db, 'estadoJogo'), { ativo: false });
-    remove(ref(db, 'chat'));
-}
