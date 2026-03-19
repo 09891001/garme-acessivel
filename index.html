@@ -26,7 +26,7 @@
                 <p>Como você quer ser chamado?</p>
                 <input type="text" id="nomeUsuario" placeholder="Digite seu nome..." 
                        style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
-                <button id="btnIniciarPartida" class="btn-primary">ENTRAR NA PARTIDA</button>
+                <button onclick="realizarLogin()" class="btn-primary">ENTRAR NA PARTIDA</button>
             </div>
         </div>
 
@@ -50,7 +50,7 @@
                     <button onclick="modoManual()" class="btn-primary" style="background: #004b81;">DESENHO MANUAL</button>
                     <button onclick="alternarModoAutomatico()" class="btn-primary" style="background: #004b81;">DESENHO AUTOMÁTICO</button>
                     
-                    <button id="btnConfirmarInicio" onclick="confirmarInicioJogo()" class="btn-success hidden" style="border: 3px solid white;">
+                    <button id="btnConfirmarInicio" class="btn-success hidden" style="border: 3px solid white;">
                         OK - INICIAR RODADA (2 MIN)
                     </button>
                 </div>
@@ -73,7 +73,7 @@
     </div>
 
     <script src="js/desenho.js"></script>
-    <script src="js/jogo.js"></script>
+    <script type="module" src="js/jogo.js"></script>
 
 </body>
 </html>
