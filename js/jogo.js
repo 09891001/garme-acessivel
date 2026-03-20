@@ -1,207 +1,384 @@
 /* =========================================================
-   GARME ACESSÍVEL - LÓGICA MULTIPLAYER COM LOGS E PRESENÇA
-   REGRAS: 16 PLAYERS | 120 SEGUNDOS | ACESSIBILIDADE TOTAL
+   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO INTEGRAL)
+   (COM SINCRONIZAÇÃO SEGURA VIA FIREBASE)
 ========================================================= */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-app.js";
-import { getDatabase, ref, set, onValue, update, push, onChildAdded, remove, onDisconnect } from "https://www.gstatic.com/firebasejs/10.8.1/firebase-database.js";
+let usuarioLogado = "";
+let tempoRestante = 120; // 2 minutos de rodada oficial
+let cronometroIntervalo = null;
+let palavraCerta = ""; 
+let jogoIniciado = false;
 
-console.log("🚀 Sistema Iniciado: Carregando Firebase...");
+/* =========================================================
+   CONTROLE LOCAL (PRESERVADO)
+========================================================= */
+let jogadores = [];
+let indiceJogadorAtual = 0;
+let desenhistaAtual = "";
+let escolhasJogadores = {};
 
-const firebaseConfig = {
-  apiKey: "AIzaSyBxav0baX6bucdYUlw1pRWOFcv9AwtqymY",
-  authDomain: "garme-acessivel.firebaseapp.com",
-  databaseURL: "https://garme-acessivel-default-rtdb.firebaseio.com",
-  projectId: "garme-acessivel",
-  storageBucket: "garme-acessivel.firebasestorage.app",
-  messagingSenderId: "69205141908",
-  appId: "1:69205141908:web:d3ce0b770f699c1a8ac781"
-};
-
-const app = initializeApp(firebaseConfig);
-const db = getDatabase(app);
-
-let meuId = null;
-let minhaInfo = { nome: "", modo: "", pontos: 0, palavra: "" };
-let jogadoresConectados = {};
-let palavraDaRodada = "";
-let intervaloCronometro = null;
+/* =========================================================
+   FIREBASE (NÃO INVASIVO)
+========================================================= */
+let salaRef = null;
+let jogadoresRef = null;
+let estadoRef = null;
+let dadosJogadores = {};
 
 /**
- * ACESSIBILIDADE: NARRAÇÃO
+ * Inicialização do Sistema
  */
-function comunicarAoNarrador(texto) {
-    const n = document.getElementById('narrador');
-    if (n) {
-        n.innerText = ""; 
-        setTimeout(() => { n.innerText = texto; }, 50);
+document.addEventListener('DOMContentLoaded', () => {
+    configurarInterfaceInicial();
+    configurarEventosTeclado();
+});
+
+function configurarInterfaceInicial() {
+    const btnIniciar = document.getElementById('btnIniciarPartida');
+    if (btnIniciar) btnIniciar.onclick = realizarLogin;
+    
+    document.getElementById('galeriaDesenhos').style.display = 'none';
+    document.getElementById('btnConfirmarInicio').classList.add('hidden');
+    
+    const chatSection = document.querySelector('.chat-section');
+    if (chatSection) {
+        chatSection.style.opacity = "0.5";
+        chatSection.style.pointerEvents = "none";
     }
+
+    comunicarAoNarrador("Sistema pronto. Digite seu nome e clique em entrar ou pressione Enter.");
 }
 
-// --- FUNÇÕES GLOBAIS (WINDOW) ---
+/**
+ * Teclado (mantido)
+ */
+function configurarEventosTeclado() {
+    window.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            const ativo = document.activeElement;
+            if (ativo.id === 'nomeUsuario') realizarLogin();
+            else if (ativo.id === 'chutePalavra') enviarChute();
+            else if (ativo.id === 'btnConfirmarInicio') confirmarInicioJogo();
+        }
+    });
+}
 
-window.realizarLogin = function() {
+/**
+ * LOGIN (COM PRESENÇA FIREBASE)
+ */
+function realizarLogin() {
     const inputNome = document.getElementById('nomeUsuario');
-    const nome = inputNome ? inputNome.value.trim() : "";
+    usuarioLogado = inputNome ? inputNome.value.trim() : "";
     
-    if (!nome) {
-        console.warn("⚠️ Tentativa de login sem nome.");
+    if (!usuarioLogado) {
+        alert("Por favor, digite seu nome.");
         return;
     }
 
-    meuId = nome; 
-    minhaInfo.nome = nome;
-
-    console.log(`👤 Login: Tentando entrar como ${nome}...`);
-
-    const playerRef = ref(db, 'jogadores/' + meuId);
-    
-    // LIMPEZA DE FANTASMAS: Remove do Firebase se o usuário fechar a aba
-    onDisconnect(playerRef).remove();
-
-    update(playerRef, minhaInfo)
-        .then(() => console.log("✅ Login realizado e persistido no Firebase."))
-        .catch(err => console.error("❌ Erro ao salvar login:", err));
-    
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('displayUsuario').innerText = nome;
-    comunicarAoNarrador(`Login realizado. Olá ${nome}.`);
-};
-
-window.modoManual = function() {
-    const p = prompt("O que você vai desenhar?");
-    if (p) {
-        const palavra = p.toLowerCase().trim();
-        update(ref(db, 'jogadores/' + meuId), { modo: 'manual', palavra: palavra });
-        console.log(`✍️ Modo Manual: Palavra definida -> ${palavra}`);
+    if (!jogadores.includes(usuarioLogado)) {
+        jogadores.push(usuarioLogado);
     }
-};
 
-window.alternarModoAutomatico = function() {
+    document.getElementById('lobby').style.display = 'none';
+    document.getElementById('displayUsuario').innerText = usuarioLogado;
+
+    comunicarAoNarrador(`Olá ${usuarioLogado}. Conectando à sala...`);
+
+    /* =========================================================
+       🔧 FIREBASE (SEM INTERFERIR NA LÓGICA)
+    ========================================================= */
+    if (typeof db !== "undefined") {
+        salaRef = db.ref("salas/sala1");
+        jogadoresRef = salaRef.child("jogadores");
+        estadoRef = salaRef.child("estado");
+
+        const meuRef = jogadoresRef.child(usuarioLogado);
+
+        meuRef.set({
+            nome: usuarioLogado,
+            pontos: 0,
+            online: true
+        });
+
+        meuRef.onDisconnect().remove();
+
+        jogadoresRef.on("value", (snapshot) => {
+            const dados = snapshot.val();
+
+            jogadores = [];
+            dadosJogadores = {};
+
+            if (dados) {
+                Object.keys(dados).forEach(nome => {
+                    jogadores.push(nome);
+                    dadosJogadores[nome] = dados[nome];
+                });
+            }
+
+            atualizarListaVisualJogadores();
+        });
+
+        /* =========================================================
+           🔧 ESCUTA ESTADO (SEM QUEBRAR LOCAL)
+        ========================================================= */
+        estadoRef.on("value", (snap) => {
+            const estado = snap.val();
+            if (!estado) return;
+
+            // Só entra se ainda não iniciou localmente
+            if (estado.jogoIniciado && !jogoIniciado) {
+                iniciarRodadaSincronizada(estado);
+            }
+        });
+    }
+
+    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha Manual ou Automático para definir o desenho.`);
+}
+
+/* =========================================================
+   LISTA VISUAL + RANKING (NÃO INVADE HTML)
+========================================================= */
+function atualizarListaVisualJogadores() {
+    let painel = document.getElementById('painelJogadores');
+
+    if (!painel) {
+        painel = document.createElement('div');
+        painel.id = "painelJogadores";
+        painel.style.position = "fixed";
+        painel.style.top = "70px";
+        painel.style.right = "10px";
+        painel.style.background = "#002a4d";
+        painel.style.padding = "10px";
+        painel.style.borderRadius = "8px";
+        painel.style.maxWidth = "250px";
+        painel.style.zIndex = "999";
+        document.body.appendChild(painel);
+    }
+
+    painel.innerHTML = "<strong>Jogadores / Ranking</strong><br>";
+
+    const listaOrdenada = Object.values(dadosJogadores).sort((a, b) => b.pontos - a.pontos);
+
+    listaOrdenada.forEach((j, index) => {
+        const linha = document.createElement('div');
+        linha.innerText = `${index + 1}º ${j.nome} - ${j.pontos} pts`;
+        painel.appendChild(linha);
+    });
+}
+
+/**
+ * DESENHO AUTOMÁTICO (mantido)
+ */
+function alternarModoAutomatico() {
     const galeria = document.getElementById('galeriaDesenhos');
-    const lista = document.getElementById('listaDesenhos');
-    galeria.style.display = 'flex';
-    lista.innerHTML = ""; 
+    const container = document.getElementById('listaDesenhos');
+    
+    if (!galeria || !container) return;
 
-    console.log("🤖 Abrindo galeria de desenhos automáticos...");
+    galeria.style.display = 'flex';
+    container.innerHTML = ""; 
 
     if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
-        Object.keys(BIBLIOTECA_DESENHOS).forEach((item) => {
+        const itens = Object.keys(BIBLIOTECA_DESENHOS);
+        
+        itens.forEach((id, index) => {
             const btn = document.createElement('button');
-            btn.innerText = item.toUpperCase();
+            btn.innerText = id.toUpperCase();
             btn.className = "btn-desenho";
-            btn.onclick = () => {
-                update(ref(db, 'jogadores/' + meuId), { modo: 'automatico', palavra: item.toLowerCase() });
+            btn.setAttribute("aria-label", `Selecionar desenho de ${id}`);
+            
+            if (index === 0) btn.id = "focoInicialGaleria";
+
+            btn.onclick = (e) => {
+                e.preventDefault();
+                palavraCerta = id.toLowerCase();
+
+                escolhasJogadores[usuarioLogado] = palavraCerta;
+
                 galeria.style.display = 'none';
-                console.log(`🤖 Modo Automático: Escolhido -> ${item}`);
+                validarInicio();
+                comunicarAoNarrador(`${id} selecionado.`);
             };
-            lista.appendChild(btn);
+            container.appendChild(btn);
         });
-    } else {
-        console.error("❌ Erro: BIBLIOTECA_DESENHOS não encontrada.");
+
+        setTimeout(() => {
+            const primeiroItem = document.getElementById('focoInicialGaleria');
+            if (primeiroItem) primeiroItem.focus();
+        }, 150);
     }
-};
+}
 
-window.enviarChute = function() {
-    const input = document.getElementById('chutePalavra');
-    const chute = input ? input.value.toLowerCase().trim() : "";
-    
-    if (chute === palavraDaRodada && palavraDaRodada !== "") {
-        console.log("🎉 Acerto detectado!");
-        minhaInfo.pontos += 10;
-        update(ref(db, 'jogadores/' + meuId), { pontos: minhaInfo.pontos });
-        comunicarAoNarrador("Parabéns! Você acertou.");
-        finalizarRodada();
-    } else {
-        push(ref(db, 'chat'), { usuario: meuId || "Anônimo", mensagem: chute });
+/**
+ * Modo Manual (mantido)
+ */
+function modoManual() {
+    const dica = prompt("O que você vai desenhar?");
+    if (dica && dica.trim() !== "") {
+        palavraCerta = dica.toLowerCase().trim();
+
+        escolhasJogadores[usuarioLogado] = palavraCerta;
+
+        validarInicio();
+        comunicarAoNarrador("Palavra manual definida.");
     }
-    if (input) input.value = "";
-};
+}
 
-// --- SINCRONIZAÇÃO E REGRAS ---
-
-onValue(ref(db, 'jogadores'), (snapshot) => {
-    jogadoresConectados = snapshot.val() || {};
-    const ids = Object.keys(jogadoresConectados);
-    
-    console.log(`👥 Atualização de Sala: ${ids.length} online.`);
-
-    const nomes = ids.map(id => jogadoresConectados[id].nome).join(", ");
-    document.getElementById('feedbackAcessivel').innerText = `Online: ${nomes}`;
+/**
+ * VALIDAÇÃO (mantida)
+ */
+function validarInicio() {
+    const total = jogadores.length;
+    const escolhidos = Object.keys(escolhasJogadores).length;
 
     const btnOk = document.getElementById('btnConfirmarInicio');
-    
-    // Identifica quem definiu o desenho (Mestre)
-    let mestreId = ids.find(id => jogadoresConectados[id] && jogadoresConectados[id].modo !== "");
-    
-    if (ids.length >= 2 && mestreId) {
-        console.log("🔘 Botão de Iniciar Liberado.");
+
+    if (total > 0 && escolhidos === total) {
         btnOk.classList.remove('hidden');
-        btnOk.onclick = () => {
-            console.log("🏁 Disparando rodada oficial...");
-            set(ref(db, 'estadoJogo'), {
-                ativo: true,
-                desenhistaId: mestreId,
-                palavra: jogadoresConectados[mestreId].palavra
-            });
-        };
+        btnOk.focus();
+        comunicarAoNarrador("Todos escolheram. Pode iniciar.");
     } else {
-        btnOk.classList.add('hidden');
+        comunicarAoNarrador(`Aguardando (${escolhidos}/${total})`);
     }
-});
+}
 
-onValue(ref(db, 'estadoJogo'), (snapshot) => {
-    const estado = snapshot.val();
-    if (estado && estado.ativo) {
-        console.log("🎮 Partida em andamento...");
-        palavraDaRodada = estado.palavra;
-        document.querySelector('.controles-modo').classList.add('hidden');
-        
-        if (meuId === estado.desenhistaId && typeof desenharObjetoAutomatico === "function") {
-            desenharObjetoAutomatico(palavraDaRodada);
-        }
-        iniciarCronometro();
+/**
+ * CONFIRMAR INÍCIO (AGORA TAMBÉM ENVIA PARA FIREBASE)
+ */
+function confirmarInicioJogo() {
+    if (!palavraCerta) {
+        alert("Escolha Manual ou Automático antes de iniciar!");
+        return;
     }
-});
 
+    if (jogoIniciado) return;
+
+    // LÓGICA ORIGINAL PRESERVADA
+    jogoIniciado = true;
+    tempoRestante = 120;
+
+    if (jogadores.length > 0) {
+        desenhistaAtual = jogadores[indiceJogadorAtual];
+        palavraCerta = escolhasJogadores[desenhistaAtual] || palavraCerta;
+    }
+
+    /* 🔧 NOVO: SINCRONIZA */
+    if (estadoRef) {
+        estadoRef.set({
+            jogoIniciado: true,
+            desenhista: desenhistaAtual,
+            palavraAtual: palavraCerta,
+            tempo: tempoRestante
+        });
+    }
+
+    iniciarRodadaLocal();
+}
+
+/**
+ * 🔧 NOVO: EXECUÇÃO LOCAL ORIGINAL
+ */
+function iniciarRodadaLocal() {
+    document.querySelector('.controles-modo').style.display = 'none';
+    document.getElementById('btnConfirmarInicio').classList.add('hidden');
+
+    const chat = document.querySelector('.chat-section');
+    const inputChat = document.getElementById('chutePalavra');
+
+    chat.style.opacity = "1";
+    chat.style.pointerEvents = "all";
+
+    if (usuarioLogado === desenhistaAtual) {
+        inputChat.disabled = true;
+    } else {
+        inputChat.disabled = false;
+        inputChat.focus();
+    }
+
+    comunicarAoNarrador("Rodada iniciada.");
+    iniciarCronometro();
+
+    if (typeof desenharObjetoAutomatico === "function") {
+        desenharObjetoAutomatico(palavraCerta);
+    }
+}
+
+/**
+ * 🔧 NOVO: SINCRONIZADO
+ */
+function iniciarRodadaSincronizada(estado) {
+    jogoIniciado = true;
+    palavraCerta = estado.palavraAtual;
+    desenhistaAtual = estado.desenhista;
+    tempoRestante = estado.tempo;
+
+    iniciarRodadaLocal();
+}
+
+/**
+ * CRONÔMETRO (mantido)
+ */
 function iniciarCronometro() {
-    let tempo = 120; // 2 minutos
-    if (intervaloCronometro) clearInterval(intervaloCronometro);
-    
-    intervaloCronometro = setInterval(() => {
-        tempo--;
-        const fb = document.getElementById('feedbackAcessivel');
-        if (fb) fb.innerText = `Tempo: ${tempo}s | Jogador: ${minhaInfo.nome}`;
-        
-        if (tempo <= 0) {
-            console.log("⏰ Tempo esgotado.");
-            finalizarRodada();
+    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+
+    cronometroIntervalo = setInterval(() => {
+        tempoRestante--;
+
+        if (tempoRestante <= 0) {
+            finalizarRodada(`Fim de tempo!`);
         }
     }, 1000);
 }
 
-function finalizarRodada() {
-    clearInterval(intervaloCronometro);
-    console.log("🏁 Rodada Finalizada.");
-    
-    if (meuId) {
-        update(ref(db, 'jogadores/' + meuId), { modo: "", palavra: "" });
+/**
+ * CHUTE (com pontuação Firebase)
+ */
+function enviarChute() {
+    const input = document.getElementById('chutePalavra');
+    const chute = input.value.toLowerCase().trim();
+    if (!chute) return;
+
+    if (chute === palavraCerta) {
+
+        if (jogadoresRef) {
+            jogadoresRef.child(usuarioLogado).child("pontos")
+                .transaction(p => (p || 0) + 1);
+        }
+
+        finalizarRodada(`VITÓRIA! ${usuarioLogado}`);
     }
-    
-    set(ref(db, 'estadoJogo'), { ativo: false });
-    remove(ref(db, 'chat'));
-    document.querySelector('.controles-modo').classList.remove('hidden');
-    comunicarAoNarrador("Fim da rodada. Verifiquem o chat.");
+
+    input.value = "";
 }
 
-// Chat
-onChildAdded(ref(db, 'chat'), (snapshot) => {
-    const msg = snapshot.val();
-    const janela = document.getElementById('janelaChat');
-    if (janela) {
-        const p = document.createElement('p');
-        p.innerHTML = `<strong>${msg.usuario}:</strong> ${msg.mensagem}`;
-        janela.appendChild(p);
-        janela.scrollTop = janela.scrollHeight;
+/**
+ * FINALIZAÇÃO (com limpeza Firebase)
+ */
+function finalizarRodada(mensagem) {
+    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+
+    jogoIniciado = false;
+    palavraCerta = "";
+
+    if (estadoRef) estadoRef.set(null);
+
+    alert(mensagem);
+    comunicarAoNarrador(mensagem);
+
+    escolhasJogadores = {};
+
+    document.querySelector('.controles-modo').style.display = 'flex';
+    document.querySelector('.chat-section').style.opacity = "0.5";
+    document.getElementById('feedbackAcessivel').innerText = "Aguardando próxima rodada...";
+}
+
+/**
+ * Narrador (mantido)
+ */
+function comunicarAoNarrador(texto) {
+    const n = document.getElementById('narrador');
+    if (n) {
+        n.innerText = "";
+        setTimeout(() => { n.innerText = texto; }, 50);
     }
-});
+}

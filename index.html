@@ -5,75 +5,110 @@
     
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Garme Acessível - Versão Final</title>
+    <title>Garme Acessível - Multiplayer</title>
+
     <link rel="stylesheet" href="css/stylo.css">
 </head>
 <body>
 
-    <div id="narrador" class="sr-only" aria-live="polite"></div>
+    <!-- Narrador acessível -->
+    <div id="narrador" class="sr-only" aria-live="polite" aria-atomic="true"></div>
 
     <div class="container">
         
+        <!-- HEADER -->
         <header class="header">
             <div class="logo">GARME ACESSÍVEL</div>
             <div id="feedbackAcessivel">Aguardando login...</div>
             <div class="user-badge" id="displayUsuario">Offline</div>
         </header>
 
+        <!-- LOGIN (ID CORRETO PARA O JS) -->
         <div id="lobby" class="overlay">
             <div class="modal">
                 <h1>Entrar no Jogo</h1>
                 <p>Como você quer ser chamado?</p>
-                <input type="text" id="nomeUsuario" placeholder="Digite seu nome..." 
-                       style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
-                <button onclick="realizarLogin()" class="btn-primary">ENTRAR NA PARTIDA</button>
+
+                <input type="text" id="nomeUsuario" placeholder="Digite seu nome..."
+                    onkeypress="if(event.key === 'Enter') realizarLogin()"
+                    style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
+
+                <button id="btnIniciarPartida" class="btn-primary">
+                    ENTRAR NA PARTIDA
+                </button>
             </div>
         </div>
 
+        <!-- GALERIA (ID CORRETO) -->
         <div id="galeriaDesenhos" class="overlay" style="display: none;">
             <div class="modal modal-grande">
-                <h2>O que o robô deve desenhar?</h2>
-                <p>Escolha um objeto da biblioteca para iniciar a narração automática:</p>
-                
+                <h2>Escolha o desenho</h2>
+
                 <div id="listaDesenhos" class="grid-drawings"></div>
-                
-                <button onclick="document.getElementById('galeriaDesenhos').style.display='none'" class="btn-danger" style="margin-top: 20px;">
+
+                <button onclick="fecharGaleria()" class="btn-cancelar">
                     CANCELAR
                 </button>
             </div>
         </div>
 
+        <!-- ÁREA DO JOGO -->
         <main class="game-area">
-            
+
+            <!-- CANVAS -->
             <section class="canvas-section">
-                <div class="controles-modo" style="position: absolute; top: 80px; z-index: 100; display: flex; gap: 10px; width: 100%; justify-content: center;">
-                    <button onclick="modoManual()" class="btn-primary" style="background: #004b81;">DESENHO MANUAL</button>
-                    <button onclick="alternarModoAutomatico()" class="btn-primary" style="background: #004b81;">DESENHO AUTOMÁTICO</button>
-                    
-                    <button id="btnConfirmarInicio" class="btn-success hidden" style="border: 3px solid white;">
-                        OK - INICIAR RODADA (2 MIN)
+
+                <div class="controles-modo"
+                    style="position: absolute; top: 80px; z-index: 100; display: flex; gap: 10px; width: 100%; justify-content: center;">
+
+                    <button onclick="modoManual()" class="btn-primary">
+                        DESENHO MANUAL
                     </button>
+
+                    <button onclick="alternarModoAutomatico()" class="btn-primary">
+                        DESENHO AUTOMÁTICO
+                    </button>
+
+                    <!-- BOTÃO CONTROLADO PELO JS -->
+                    <button id="btnConfirmarInicio"
+                        onclick="confirmarInicioJogo()"
+                        class="btn-primary hidden">
+                        OK - INICIAR RODADA
+                    </button>
+
                 </div>
 
                 <canvas id="quadro" width="800" height="500"></canvas>
             </section>
 
+            <!-- CHAT -->
             <section class="chat-section">
-                <div class="chat-window" id="janelaChat">
-                    <p><strong>Sistema:</strong> Bem-vindo! Aguarde o mestre definir o desenho.</p>
+                <div class="chat-window" id="janelaChat" role="log">
+                    <p><strong>Sistema:</strong> Bem-vindo! Aguarde o início.</p>
                 </div>
-                
+
                 <div class="chat-controls">
-                    <input type="text" id="chutePalavra" placeholder="Qual é o desenho?">
-                    <button onclick="enviarChute()" class="btn-success">CHUTAR</button>
+                    <input type="text" id="chutePalavra"
+                        placeholder="Qual é o desenho?"
+                        onkeypress="if(event.key === 'Enter') enviarChute()">
+
+                    <button onclick="enviarChute()" class="btn-primary">
+                        CHUTAR
+                    </button>
                 </div>
             </section>
 
         </main>
     </div>
 
+    <!-- 🔥 FIREBASE (OBRIGATÓRIO) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <!-- SEUS SCRIPTS -->
+    <script src="js/config.js"></script>
     <script src="js/desenho.js"></script>
-    <script type="module" src="js/jogo.js"></script>
+    <script src="js/jogo.js"></script>
 
 </body>
 </html>
