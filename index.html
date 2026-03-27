@@ -1,114 +1,345 @@
 <!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <link rel="icon" href="data:;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg==">
-    
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Garme Acessível - Multiplayer</title>
+<html lang="pt-BR">
 
-    <link rel="stylesheet" href="css/stylo.css">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Garme Acessível</title>
+
+<link rel="stylesheet" href="css/stylo.css">
+<link rel="icon" href="data:,">
+
 </head>
+
 <body>
 
-    <!-- Narrador acessível -->
-    <div id="narrador" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+<!-- ACESSIBILIDADE GLOBAL -->
+<div 
+id="areaAcessivel"
+class="sr-only"
+aria-live="assertive"
+role="alert">
+Sistema carregado
+</div>
 
-    <div class="container">
-        
-        <!-- HEADER -->
-        <header class="header">
-            <div class="logo">GARME ACESSÍVEL</div>
-            <div id="feedbackAcessivel">Aguardando login...</div>
-            <div class="user-badge" id="displayUsuario">Offline</div>
-        </header>
+<header id="cabecalhoPrincipal">
 
-        <!-- LOGIN (ID CORRETO PARA O JS) -->
-        <div id="lobby" class="overlay">
-            <div class="modal">
-                <h1>Entrar no Jogo</h1>
-                <p>Como você quer ser chamado?</p>
+<h1 id="tituloPrincipal">
+GARME ACESSÍVEL
+</h1>
 
-                <input type="text" id="nomeUsuario" placeholder="Digite seu nome..."
-                    onkeypress="if(event.key === 'Enter') realizarLogin()"
-                    style="width: 100%; padding: 12px; margin: 15px 0; border-radius: 8px; border: 1px solid #ccc;">
+<div id="statusSistema" aria-live="polite">
+Aguardando login...
+</div>
 
-                <button id="btnIniciarPartida" class="btn-primary">
-                    ENTRAR NA PARTIDA
-                </button>
-            </div>
-        </div>
+<div id="displayUsuario" aria-live="polite">
+Offline
+</div>
 
-        <!-- GALERIA (ID CORRETO) -->
-        <div id="galeriaDesenhos" class="overlay" style="display: none;">
-            <div class="modal modal-grande">
-                <h2>Escolha o desenho</h2>
+</header>
 
-                <div id="listaDesenhos" class="grid-drawings"></div>
+<main id="conteudoPrincipal">
 
-                <button onclick="fecharGaleria()" class="btn-cancelar">
-                    CANCELAR
-                </button>
-            </div>
-        </div>
+<!-- LOGIN -->
+<section 
+id="lobby"
+role="region"
+aria-label="Tela de login">
 
-        <!-- ÁREA DO JOGO -->
-        <main class="game-area">
+<h2 id="tituloLogin">
+Entrar no Jogo
+</h2>
 
-            <!-- CANVAS -->
-            <section class="canvas-section">
+<label for="nomeUsuario">
+Como você quer ser chamado?
+</label>
 
-                <div class="controles-modo"
-                    style="position: absolute; top: 80px; z-index: 100; display: flex; gap: 10px; width: 100%; justify-content: center;">
+<input 
+type="text"
+id="nomeUsuario"
+placeholder="Digite seu nome"
+aria-label="Digite seu nome"
+autocomplete="off"
+/>
 
-                    <button onclick="modoManual()" class="btn-primary">
-                        DESENHO MANUAL
-                    </button>
+<button 
+id="btnEntrarPartida"
+aria-label="Entrar na partida">
+Entrar na partida
+</button>
 
-                    <button onclick="alternarModoAutomatico()" class="btn-primary">
-                        DESENHO AUTOMÁTICO
-                    </button>
+</section>
 
-                    <!-- BOTÃO CONTROLADO PELO JS -->
-                    <button id="btnConfirmarInicio"
-                        onclick="confirmarInicioJogo()"
-                        class="btn-primary hidden">
-                        OK - INICIAR RODADA
-                    </button>
+<!-- JOGO -->
+<section 
+id="areaJogo"
+style="display:none;"
+aria-label="Área do jogo">
 
-                </div>
+<!-- CONTROLE -->
+<section 
+id="controleJogo"
+aria-label="Controle do jogo">
 
-                <canvas id="quadro" width="800" height="500"></canvas>
-            </section>
+<div id="timerPartida" aria-live="polite">
+Tempo: 120
+</div>
 
-            <!-- CHAT -->
-            <section class="chat-section">
-                <div class="chat-window" id="janelaChat" role="log">
-                    <p><strong>Sistema:</strong> Bem-vindo! Aguarde o início.</p>
-                </div>
+<div id="palavraAtual" aria-live="polite">
+Aguardando rodada
+</div>
 
-                <div class="chat-controls">
-                    <input type="text" id="chutePalavra"
-                        placeholder="Qual é o desenho?"
-                        onkeypress="if(event.key === 'Enter') enviarChute()">
+</section>
 
-                    <button onclick="enviarChute()" class="btn-primary">
-                        CHUTAR
-                    </button>
-                </div>
-            </section>
+<!-- ESCOLHA DESENHO -->
+<section 
+id="areaEscolhaDesenho"
+style="display:none;"
+aria-label="Escolher tipo de desenho">
 
-        </main>
-    </div>
+<button id="btnManual" aria-label="Selecionar desenho manual">
+Selecionar desenho manual
+</button>
 
-    <!-- 🔥 FIREBASE (OBRIGATÓRIO) -->
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<button id="btnAuto" aria-label="Selecionar desenho automático">
+Selecionar desenho automático
+</button>
 
-    <!-- SEUS SCRIPTS -->
-    <script src="js/config.js"></script>
-    <script src="js/desenho.js"></script>
-    <script src="js/jogo.js"></script>
+</section>
+
+<!-- LISTA (mantido para compatibilidade futura) -->
+<section id="listaDesenhos" aria-label="Lista de desenhos"></section>
+
+<!-- DESENHO -->
+<section id="areaDesenho" aria-label="Área de desenho">
+
+<h2>Área de desenho</h2>
+
+<canvas 
+id="quadroDesenho"
+role="img"
+aria-label="Quadro de desenho"
+tabindex="0">
+</canvas>
+
+<button id="btnLimparQuadro" aria-label="Limpar quadro">
+Limpar quadro
+</button>
+
+</section>
+
+<!-- CHAT -->
+<section id="areaChat" aria-label="Chat do jogo">
+
+<h2>Chat</h2>
+
+<div 
+id="janelaChat"
+role="log"
+aria-live="polite"
+aria-relevant="additions"
+tabindex="0">
+</div>
+
+<input
+type="text"
+id="chutePalavra"
+placeholder="Digite sua resposta"
+aria-label="Digite sua resposta"
+autocomplete="off"
+/>
+
+<button id="btnEnviarChute" aria-label="Enviar resposta">
+Enviar
+</button>
+
+</section>
+
+<!-- RANKING -->
+<section id="areaRanking" aria-label="Ranking do jogo">
+
+<h2>Ranking</h2>
+
+<ul id="listaRanking" aria-live="polite"></ul>
+
+</section>
+
+<!-- CONTROLE PARTIDA -->
+<section id="controlePartida" aria-label="Controle da partida">
+
+<button id="btnEntrarRodada" aria-label="Iniciar rodada">
+Entrar na rodada
+</button>
+
+<button id="btnSair" aria-label="Sair da partida">
+Sair da partida
+</button>
+
+<button 
+id="botaoResetAcessivel"
+aria-label="Resetar jogo"
+class="btnAcessivel">
+Resetar jogo
+</button>
+
+</section>
+
+</section>
+
+</main>
+
+<footer id="rodapePrincipal">
+
+<div id="rodapeStatus" aria-live="polite">
+Sistema carregado
+</div>
+
+</footer>
+
+<!-- FIREBASE -->
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+<!-- SCRIPTS -->
+<script src="js/config.js"></script>
+<script src="js/desenho.js"></script>
+<script src="js/jogo.js"></script>
+
+<!-- EVENTOS CENTRALIZADOS -->
+<script>
+
+document.addEventListener("DOMContentLoaded", function(){
+
+// LOGIN
+const inputNome = document.getElementById("nomeUsuario");
+if(inputNome){
+inputNome.addEventListener("keypress", function(e){
+if(e.key === "Enter" && window.realizarLogin){
+window.realizarLogin();
+}
+});
+}
+
+const btnEntrar = document.getElementById("btnEntrarPartida");
+if(btnEntrar){
+btnEntrar.addEventListener("click", function(){
+if(window.realizarLogin){
+window.realizarLogin();
+}
+});
+}
+
+// CHAT
+const inputChute = document.getElementById("chutePalavra");
+if(inputChute){
+inputChute.addEventListener("keypress", function(e){
+if(e.key === "Enter" && window.enviarChute){
+window.enviarChute();
+}
+});
+}
+
+const btnEnviar = document.getElementById("btnEnviarChute");
+if(btnEnviar){
+btnEnviar.addEventListener("click", function(){
+if(window.enviarChute){
+window.enviarChute();
+}
+});
+}
+
+// DESENHO
+const btnManual = document.getElementById("btnManual");
+if(btnManual){
+btnManual.addEventListener("click", function(){
+if(window.escolherDesenhoManual){
+window.escolherDesenhoManual();
+}
+});
+}
+
+const btnAuto = document.getElementById("btnAuto");
+if(btnAuto){
+btnAuto.addEventListener("click", function(){
+if(window.escolherDesenhoAutomatico){
+window.escolherDesenhoAutomatico();
+}
+});
+}
+
+const btnLimpar = document.getElementById("btnLimparQuadro");
+if(btnLimpar){
+btnLimpar.addEventListener("click", function(){
+if(window.limparQuadroSincronizado){
+window.limparQuadroSincronizado();
+}
+});
+}
+
+// PARTIDA
+const btnEntrarRodada = document.getElementById("btnEntrarRodada");
+if(btnEntrarRodada){
+btnEntrarRodada.addEventListener("click", function(){
+if(window.entrarPartida){
+window.entrarPartida();
+}
+});
+}
+
+const btnSair = document.getElementById("btnSair");
+if(btnSair){
+btnSair.addEventListener("click", function(){
+if(window.sairPartida){
+window.sairPartida();
+}
+});
+}
+
+const btnReset = document.getElementById("botaoResetAcessivel");
+if(btnReset){
+btnReset.addEventListener("click", function(){
+if(window.resetarJogoCompleto){
+window.resetarJogoCompleto();
+}
+});
+}
+
+});
+
+// ACESSIBILIDADE TECLADO
+function focarAreaChat(){
+const chat = document.getElementById("janelaChat");
+if(chat) chat.focus();
+}
+
+function focarCanvas(){
+const canvas = document.getElementById("quadroDesenho");
+if(canvas) canvas.focus();
+}
+
+document.addEventListener("keydown", function(e){
+
+if(e.altKey && e.key === "1"){
+focarAreaChat();
+}
+
+if(e.altKey && e.key === "2"){
+focarCanvas();
+}
+
+});
+
+// FEEDBACK INICIAL
+window.addEventListener("load", function(){
+const area = document.getElementById("areaAcessivel");
+if(area){
+area.textContent = "Sistema carregado";
+}
+});
+
+</script>
 
 </body>
 </html>

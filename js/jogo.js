@@ -1,384 +1,674 @@
-/* =========================================================
-   CONTROLE PRINCIPAL - GARME ACESSÍVEL (VERSÃO INTEGRAL)
-   (COM SINCRONIZAÇÃO SEGURA VIA FIREBASE)
-========================================================= */
+"use strict";
 
-let usuarioLogado = "";
-let tempoRestante = 120; // 2 minutos de rodada oficial
-let cronometroIntervalo = null;
-let palavraCerta = ""; 
-let jogoIniciado = false;
+// ===============================
+// GARME ACESSÍVEL - JOGO.JS (VERSÃO CORRIGIDA)
+// ===============================
 
-/* =========================================================
-   CONTROLE LOCAL (PRESERVADO)
-========================================================= */
-let jogadores = [];
-let indiceJogadorAtual = 0;
-let desenhistaAtual = "";
-let escolhasJogadores = {};
+// ===============================
+// VARIÁVEIS GLOBAIS
+// ===============================
 
-/* =========================================================
-   FIREBASE (NÃO INVASIVO)
-========================================================= */
-let salaRef = null;
-let jogadoresRef = null;
-let estadoRef = null;
-let dadosJogadores = {};
+let usuarioNome01 = null;
+let usuarioId01 = null;
+let usuarioLogado01 = false;
 
-/**
- * Inicialização do Sistema
- */
-document.addEventListener('DOMContentLoaded', () => {
-    configurarInterfaceInicial();
-    configurarEventosTeclado();
+let desenhistaAtual01 = null;
+let palavraAtual01 = null;
+
+let timerAtual01 = 120;
+let timerIntervalo01 = null;
+
+let rodadaAtual01 = 0;
+let jogoEmAndamento01 = false;
+
+let listaUsuarios01 = {};
+let rankingUsuarios01 = {};
+
+
+// ===============================
+// ELEMENTOS DOM
+// ===============================
+
+let inputNome01;
+let btnEntrarPartida01;
+
+let btnManual01;
+let btnAuto01;
+
+let btnLimparQuadro01;
+let btnEnviarChute01;
+
+let btnEntrarRodada01;
+let btnSair01;
+let btnReset01;
+
+let areaJogo01;
+let lobby01;
+
+let janelaChat01;
+let listaRanking01;
+
+let timerPartida01;
+let palavraAtualTexto01;
+
+let statusSistema01;
+let displayUsuario01;
+
+let areaEscolhaDesenho01;
+
+
+// ===============================
+// INICIALIZAÇÃO
+// ===============================
+
+document.addEventListener("DOMContentLoaded", function(){
+
+inputNome01 = document.getElementById("nomeUsuario");
+btnEntrarPartida01 = document.getElementById("btnEntrarPartida");
+
+btnManual01 = document.getElementById("btnManual");
+btnAuto01 = document.getElementById("btnAuto");
+
+btnLimparQuadro01 = document.getElementById("btnLimparQuadro");
+btnEnviarChute01 = document.getElementById("btnEnviarChute");
+
+btnEntrarRodada01 = document.getElementById("btnEntrarRodada");
+btnSair01 = document.getElementById("btnSair");
+btnReset01 = document.getElementById("botaoResetAcessivel");
+
+areaJogo01 = document.getElementById("areaJogo");
+lobby01 = document.getElementById("lobby");
+
+janelaChat01 = document.getElementById("janelaChat");
+listaRanking01 = document.getElementById("listaRanking");
+
+timerPartida01 = document.getElementById("timerPartida");
+palavraAtualTexto01 = document.getElementById("palavraAtual");
+
+statusSistema01 = document.getElementById("statusSistema");
+displayUsuario01 = document.getElementById("displayUsuario");
+
+areaEscolhaDesenho01 = document.getElementById("areaEscolhaDesenho");
+
+// ❌ REMOVIDO: configurarEventos duplicado (controlado pelo index.html)
+
+escutarUsuarios01();
+escutarChat01();
+escutarEstado01();
+escutarRanking01();
+escutarResetGlobal01();
+
 });
 
-function configurarInterfaceInicial() {
-    const btnIniciar = document.getElementById('btnIniciarPartida');
-    if (btnIniciar) btnIniciar.onclick = realizarLogin;
-    
-    document.getElementById('galeriaDesenhos').style.display = 'none';
-    document.getElementById('btnConfirmarInicio').classList.add('hidden');
-    
-    const chatSection = document.querySelector('.chat-section');
-    if (chatSection) {
-        chatSection.style.opacity = "0.5";
-        chatSection.style.pointerEvents = "none";
-    }
 
-    comunicarAoNarrador("Sistema pronto. Digite seu nome e clique em entrar ou pressione Enter.");
+// ===============================
+// LOGIN
+// ===============================
+
+function realizarLogin(){
+
+if(!inputNome01) return;
+
+const nome = inputNome01.value.trim();
+
+if(nome.length < 2){
+
+escreverSistema01("Digite um nome válido");
+return;
+
 }
 
-/**
- * Teclado (mantido)
- */
-function configurarEventosTeclado() {
-    window.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') {
-            const ativo = document.activeElement;
-            if (ativo.id === 'nomeUsuario') realizarLogin();
-            else if (ativo.id === 'chutePalavra') enviarChute();
-            else if (ativo.id === 'btnConfirmarInicio') confirmarInicioJogo();
-        }
-    });
+usuarioNome01 = nome;
+usuarioId01 = Date.now().toString();
+
+usuarioLogado01 = true;
+
+lobby01.style.display = "none";
+areaJogo01.style.display = "block";
+
+displayUsuario01.textContent = usuarioNome01;
+statusSistema01.textContent = "Online";
+
+// ✔ USANDO CONFIG.JS
+if(typeof registrarUsuarioFirebase01 === "function"){
+registrarUsuarioFirebase01(usuarioId01, usuarioNome01);
 }
 
-/**
- * LOGIN (COM PRESENÇA FIREBASE)
- */
-function realizarLogin() {
-    const inputNome = document.getElementById('nomeUsuario');
-    usuarioLogado = inputNome ? inputNome.value.trim() : "";
-    
-    if (!usuarioLogado) {
-        alert("Por favor, digite seu nome.");
-        return;
-    }
+escreverSistema01(usuarioNome01 + " entrou na partida");
 
-    if (!jogadores.includes(usuarioLogado)) {
-        jogadores.push(usuarioLogado);
-    }
+anunciarAcessibilidade01("Você entrou na partida");
 
-    document.getElementById('lobby').style.display = 'none';
-    document.getElementById('displayUsuario').innerText = usuarioLogado;
-
-    comunicarAoNarrador(`Olá ${usuarioLogado}. Conectando à sala...`);
-
-    /* =========================================================
-       🔧 FIREBASE (SEM INTERFERIR NA LÓGICA)
-    ========================================================= */
-    if (typeof db !== "undefined") {
-        salaRef = db.ref("salas/sala1");
-        jogadoresRef = salaRef.child("jogadores");
-        estadoRef = salaRef.child("estado");
-
-        const meuRef = jogadoresRef.child(usuarioLogado);
-
-        meuRef.set({
-            nome: usuarioLogado,
-            pontos: 0,
-            online: true
-        });
-
-        meuRef.onDisconnect().remove();
-
-        jogadoresRef.on("value", (snapshot) => {
-            const dados = snapshot.val();
-
-            jogadores = [];
-            dadosJogadores = {};
-
-            if (dados) {
-                Object.keys(dados).forEach(nome => {
-                    jogadores.push(nome);
-                    dadosJogadores[nome] = dados[nome];
-                });
-            }
-
-            atualizarListaVisualJogadores();
-        });
-
-        /* =========================================================
-           🔧 ESCUTA ESTADO (SEM QUEBRAR LOCAL)
-        ========================================================= */
-        estadoRef.on("value", (snap) => {
-            const estado = snap.val();
-            if (!estado) return;
-
-            // Só entra se ainda não iniciou localmente
-            if (estado.jogoIniciado && !jogoIniciado) {
-                iniciarRodadaSincronizada(estado);
-            }
-        });
-    }
-
-    comunicarAoNarrador(`Olá ${usuarioLogado}. Escolha Manual ou Automático para definir o desenho.`);
 }
 
-/* =========================================================
-   LISTA VISUAL + RANKING (NÃO INVADE HTML)
-========================================================= */
-function atualizarListaVisualJogadores() {
-    let painel = document.getElementById('painelJogadores');
 
-    if (!painel) {
-        painel = document.createElement('div');
-        painel.id = "painelJogadores";
-        painel.style.position = "fixed";
-        painel.style.top = "70px";
-        painel.style.right = "10px";
-        painel.style.background = "#002a4d";
-        painel.style.padding = "10px";
-        painel.style.borderRadius = "8px";
-        painel.style.maxWidth = "250px";
-        painel.style.zIndex = "999";
-        document.body.appendChild(painel);
-    }
+// ===============================
+// FIREBASE USUÁRIOS
+// ===============================
 
-    painel.innerHTML = "<strong>Jogadores / Ranking</strong><br>";
+function escutarUsuarios01(){
 
-    const listaOrdenada = Object.values(dadosJogadores).sort((a, b) => b.pontos - a.pontos);
+if(!db) return;
 
-    listaOrdenada.forEach((j, index) => {
-        const linha = document.createElement('div');
-        linha.innerText = `${index + 1}º ${j.nome} - ${j.pontos} pts`;
-        painel.appendChild(linha);
-    });
+db.ref(firebaseUsuarios01).on("value", function(snapshot){
+
+const data = snapshot.val();
+
+if(!data){
+
+listaUsuarios01 = {};
+return;
+
 }
 
-/**
- * DESENHO AUTOMÁTICO (mantido)
- */
-function alternarModoAutomatico() {
-    const galeria = document.getElementById('galeriaDesenhos');
-    const container = document.getElementById('listaDesenhos');
-    
-    if (!galeria || !container) return;
+listaUsuarios01 = data;
 
-    galeria.style.display = 'flex';
-    container.innerHTML = ""; 
+});
 
-    if (typeof BIBLIOTECA_DESENHOS !== 'undefined') {
-        const itens = Object.keys(BIBLIOTECA_DESENHOS);
-        
-        itens.forEach((id, index) => {
-            const btn = document.createElement('button');
-            btn.innerText = id.toUpperCase();
-            btn.className = "btn-desenho";
-            btn.setAttribute("aria-label", `Selecionar desenho de ${id}`);
-            
-            if (index === 0) btn.id = "focoInicialGaleria";
-
-            btn.onclick = (e) => {
-                e.preventDefault();
-                palavraCerta = id.toLowerCase();
-
-                escolhasJogadores[usuarioLogado] = palavraCerta;
-
-                galeria.style.display = 'none';
-                validarInicio();
-                comunicarAoNarrador(`${id} selecionado.`);
-            };
-            container.appendChild(btn);
-        });
-
-        setTimeout(() => {
-            const primeiroItem = document.getElementById('focoInicialGaleria');
-            if (primeiroItem) primeiroItem.focus();
-        }, 150);
-    }
 }
 
-/**
- * Modo Manual (mantido)
- */
-function modoManual() {
-    const dica = prompt("O que você vai desenhar?");
-    if (dica && dica.trim() !== "") {
-        palavraCerta = dica.toLowerCase().trim();
 
-        escolhasJogadores[usuarioLogado] = palavraCerta;
+// ===============================
+// CHAT
+// ===============================
 
-        validarInicio();
-        comunicarAoNarrador("Palavra manual definida.");
-    }
+function enviarChute(){
+
+const input = document.getElementById("chutePalavra");
+
+if(!input) return;
+
+const mensagem = input.value.trim();
+
+if(mensagem.length === 0) return;
+
+if(typeof enviarMensagemChatFirebase01 === "function"){
+
+enviarMensagemChatFirebase01(usuarioNome01, mensagem);
+
 }
 
-/**
- * VALIDAÇÃO (mantida)
- */
-function validarInicio() {
-    const total = jogadores.length;
-    const escolhidos = Object.keys(escolhasJogadores).length;
+input.value = "";
 
-    const btnOk = document.getElementById('btnConfirmarInicio');
-
-    if (total > 0 && escolhidos === total) {
-        btnOk.classList.remove('hidden');
-        btnOk.focus();
-        comunicarAoNarrador("Todos escolheram. Pode iniciar.");
-    } else {
-        comunicarAoNarrador(`Aguardando (${escolhidos}/${total})`);
-    }
 }
 
-/**
- * CONFIRMAR INÍCIO (AGORA TAMBÉM ENVIA PARA FIREBASE)
- */
-function confirmarInicioJogo() {
-    if (!palavraCerta) {
-        alert("Escolha Manual ou Automático antes de iniciar!");
-        return;
-    }
+function escutarChat01(){
 
-    if (jogoIniciado) return;
+if(!db) return;
 
-    // LÓGICA ORIGINAL PRESERVADA
-    jogoIniciado = true;
-    tempoRestante = 120;
+db.ref(firebaseChat01).on("child_added", function(snapshot){
 
-    if (jogadores.length > 0) {
-        desenhistaAtual = jogadores[indiceJogadorAtual];
-        palavraCerta = escolhasJogadores[desenhistaAtual] || palavraCerta;
-    }
+const data = snapshot.val();
 
-    /* 🔧 NOVO: SINCRONIZA */
-    if (estadoRef) {
-        estadoRef.set({
-            jogoIniciado: true,
-            desenhista: desenhistaAtual,
-            palavraAtual: palavraCerta,
-            tempo: tempoRestante
-        });
-    }
+if(!data) return;
 
-    iniciarRodadaLocal();
+escreverChat01(data.nome + ": " + data.mensagem);
+
+verificarResposta01(data.mensagem, data.nome);
+
+});
+
 }
 
-/**
- * 🔧 NOVO: EXECUÇÃO LOCAL ORIGINAL
- */
-function iniciarRodadaLocal() {
-    document.querySelector('.controles-modo').style.display = 'none';
-    document.getElementById('btnConfirmarInicio').classList.add('hidden');
+function escreverChat01(texto){
 
-    const chat = document.querySelector('.chat-section');
-    const inputChat = document.getElementById('chutePalavra');
+const div = document.createElement("div");
 
-    chat.style.opacity = "1";
-    chat.style.pointerEvents = "all";
+div.textContent = texto;
 
-    if (usuarioLogado === desenhistaAtual) {
-        inputChat.disabled = true;
-    } else {
-        inputChat.disabled = false;
-        inputChat.focus();
-    }
+janelaChat01.appendChild(div);
 
-    comunicarAoNarrador("Rodada iniciada.");
-    iniciarCronometro();
+janelaChat01.scrollTop = janelaChat01.scrollHeight;
 
-    if (typeof desenharObjetoAutomatico === "function") {
-        desenharObjetoAutomatico(palavraCerta);
-    }
 }
 
-/**
- * 🔧 NOVO: SINCRONIZADO
- */
-function iniciarRodadaSincronizada(estado) {
-    jogoIniciado = true;
-    palavraCerta = estado.palavraAtual;
-    desenhistaAtual = estado.desenhista;
-    tempoRestante = estado.tempo;
 
-    iniciarRodadaLocal();
+// ===============================
+// SISTEMA
+// ===============================
+
+function escreverSistema01(texto){
+
+const div = document.createElement("div");
+
+div.textContent = "Sistema: " + texto;
+
+janelaChat01.appendChild(div);
+
+janelaChat01.scrollTop = janelaChat01.scrollHeight;
+
 }
 
-/**
- * CRONÔMETRO (mantido)
- */
-function iniciarCronometro() {
-    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+function anunciarAcessibilidade01(texto){
 
-    cronometroIntervalo = setInterval(() => {
-        tempoRestante--;
+const area = document.getElementById("areaAcessivel");
 
-        if (tempoRestante <= 0) {
-            finalizarRodada(`Fim de tempo!`);
-        }
-    }, 1000);
+if(!area) return;
+
+area.textContent = "";
+
+setTimeout(function(){
+
+area.textContent = texto;
+
+},100);
+
 }
 
-/**
- * CHUTE (com pontuação Firebase)
- */
-function enviarChute() {
-    const input = document.getElementById('chutePalavra');
-    const chute = input.value.toLowerCase().trim();
-    if (!chute) return;
 
-    if (chute === palavraCerta) {
+// ===============================
+// CONTROLE DE RODADAS
+// ===============================
 
-        if (jogadoresRef) {
-            jogadoresRef.child(usuarioLogado).child("pontos")
-                .transaction(p => (p || 0) + 1);
-        }
+function entrarPartida(){
 
-        finalizarRodada(`VITÓRIA! ${usuarioLogado}`);
-    }
+if(!usuarioLogado01) return;
 
-    input.value = "";
+if(jogoEmAndamento01) return;
+
+iniciarRodadaCompleta01();
+
 }
 
-/**
- * FINALIZAÇÃO (com limpeza Firebase)
- */
-function finalizarRodada(mensagem) {
-    if (cronometroIntervalo) clearInterval(cronometroIntervalo);
+function iniciarRodadaCompleta01(){
 
-    jogoIniciado = false;
-    palavraCerta = "";
+jogoEmAndamento01 = true;
 
-    if (estadoRef) estadoRef.set(null);
+escolherProximoDesenhista01();
 
-    alert(mensagem);
-    comunicarAoNarrador(mensagem);
+iniciarTimerLocal01();
 
-    escolhasJogadores = {};
-
-    document.querySelector('.controles-modo').style.display = 'flex';
-    document.querySelector('.chat-section').style.opacity = "0.5";
-    document.getElementById('feedbackAcessivel').innerText = "Aguardando próxima rodada...";
+if(typeof limparQuadroSincronizado === "function"){
+limparQuadroSincronizado();
 }
 
-/**
- * Narrador (mantido)
- */
-function comunicarAoNarrador(texto) {
-    const n = document.getElementById('narrador');
-    if (n) {
-        n.innerText = "";
-        setTimeout(() => { n.innerText = texto; }, 50);
-    }
 }
+
+
+// ===============================
+// DESENHISTA
+// ===============================
+
+function escolherProximoDesenhista01(){
+
+const ids = Object.keys(listaUsuarios01);
+
+if(ids.length === 0) return;
+
+const indice = Math.floor(Math.random() * ids.length);
+
+const id = ids[indice];
+
+const usuario = listaUsuarios01[id];
+
+if(typeof definirDesenhistaFirebase01 === "function"){
+definirDesenhistaFirebase01(usuario.nome);
+}
+
+escreverSistema01(usuario.nome + " é o desenhista");
+
+}
+
+
+// ===============================
+// ESCUTA ESTADO
+// ===============================
+
+function escutarEstado01(){
+
+if(!db) return;
+
+db.ref(firebaseEstado01).on("value", function(snapshot){
+
+const estado = snapshot.val();
+
+if(!estado) return;
+
+desenhistaAtual01 = estado.desenhista;
+palavraAtual01 = estado.palavra;
+
+atualizarControleBotoes01();
+
+});
+
+}
+
+function atualizarControleBotoes01(){
+
+if(usuarioNome01 === desenhistaAtual01){
+
+areaEscolhaDesenho01.style.display = "block";
+
+// ✔ INTEGRAÇÃO COM DESENHO.JS
+if(window.liberarDesenho){
+window.liberarDesenho();
+}
+
+}else{
+
+areaEscolhaDesenho01.style.display = "none";
+
+if(window.bloquearDesenho){
+window.bloquearDesenho();
+}
+
+}
+
+}
+
+
+// ===============================
+// ESCOLHA DESENHO
+// ===============================
+
+function escolherDesenhoManual(){
+
+if(usuarioNome01 !== desenhistaAtual01) return;
+
+const palavra = prompt("Digite a palavra");
+
+if(!palavra) return;
+
+if(typeof definirPalavraFirebase01 === "function"){
+definirPalavraFirebase01(palavra);
+}
+
+palavraAtualTexto01.textContent = "Desenhando...";
+
+areaEscolhaDesenho01.style.display = "none";
+
+}
+
+function escolherDesenhoAutomatico(){
+
+if(usuarioNome01 !== desenhistaAtual01) return;
+
+const palavras = [
+"casa","carro","gato","cachorro","árvore",
+"avião","barco","telefone","livro","bola"
+];
+
+const palavra = palavras[Math.floor(Math.random() * palavras.length)];
+
+if(typeof definirPalavraFirebase01 === "function"){
+definirPalavraFirebase01(palavra);
+}
+
+palavraAtualTexto01.textContent = "Desenhando...";
+
+areaEscolhaDesenho01.style.display = "none";
+
+}
+
+
+// ===============================
+// VERIFICAR RESPOSTA
+// ===============================
+
+function verificarResposta01(mensagem, nome){
+
+if(!palavraAtual01) return;
+
+if(mensagem.toLowerCase() === palavraAtual01.toLowerCase()){
+
+acertouPalavra01(nome);
+
+}
+
+}
+
+function acertouPalavra01(nome){
+
+escreverSistema01(nome + " acertou a palavra");
+
+atualizarPontuacao01(nome);
+
+resetarRodada01();
+
+}
+
+
+// ===============================
+// TIMER
+// ===============================
+
+function iniciarTimerLocal01(){
+
+clearInterval(timerIntervalo01);
+
+timerAtual01 = 120;
+
+timerIntervalo01 = setInterval(function(){
+
+timerAtual01--;
+
+if(timerPartida01){
+timerPartida01.textContent = "Tempo: " + timerAtual01;
+}
+
+if(timerAtual01 <= 0){
+
+clearInterval(timerIntervalo01);
+
+finalizarRodada01();
+
+}
+
+},1000);
+
+}
+
+function finalizarRodada01(){
+
+jogoEmAndamento01 = false;
+
+palavraAtual01 = null;
+
+if(palavraAtualTexto01){
+palavraAtualTexto01.textContent = "Aguardando rodada";
+}
+
+escreverSistema01("Tempo esgotado");
+
+anunciarAcessibilidade01("Tempo esgotado");
+
+resetarRodada01();
+
+}
+
+
+// ===============================
+// RESET RODADA
+// ===============================
+
+function resetarRodada01(){
+
+clearInterval(timerIntervalo01);
+
+timerAtual01 = 120;
+
+if(timerPartida01){
+timerPartida01.textContent = "Tempo: 120";
+}
+
+palavraAtual01 = null;
+jogoEmAndamento01 = false;
+
+}
+
+
+// ===============================
+// RANKING
+// ===============================
+
+function atualizarPontuacao01(nome){
+
+if(!rankingUsuarios01[nome]){
+rankingUsuarios01[nome] = 0;
+}
+
+rankingUsuarios01[nome]++;
+
+if(typeof atualizarPontuacaoFirebase01 === "function"){
+// opcional manter sincronizado
+}
+
+}
+
+function escutarRanking01(){
+
+if(!db) return;
+
+db.ref(firebaseRanking01).on("value", function(snapshot){
+
+const data = snapshot.val();
+
+if(!data){
+rankingUsuarios01 = {};
+renderizarRanking01();
+return;
+}
+
+rankingUsuarios01 = data;
+
+renderizarRanking01();
+
+});
+
+}
+
+function renderizarRanking01(){
+
+if(!listaRanking01) return;
+
+listaRanking01.innerHTML = "";
+
+Object.keys(rankingUsuarios01).forEach(function(nome){
+
+const li = document.createElement("li");
+
+li.textContent = nome + " - " + rankingUsuarios01[nome];
+
+listaRanking01.appendChild(li);
+
+});
+
+}
+
+
+// ===============================
+// RESET GLOBAL
+// ===============================
+
+function resetarJogoCompleto(){
+
+if(typeof resetarFirebaseCompleto01 === "function"){
+resetarFirebaseCompleto01();
+}
+
+resetarEstadoLocal01();
+resetarInterface01();
+
+if(typeof limparQuadroSincronizado === "function"){
+limparQuadroSincronizado();
+}
+
+escreverSistema01("Jogo resetado");
+anunciarAcessibilidade01("Jogo resetado");
+
+}
+
+function resetarEstadoLocal01(){
+
+desenhistaAtual01 = null;
+palavraAtual01 = null;
+timerAtual01 = 120;
+rodadaAtual01 = 0;
+jogoEmAndamento01 = false;
+
+}
+
+function resetarInterface01(){
+
+if(timerPartida01){
+timerPartida01.textContent = "Tempo: 120";
+}
+
+if(palavraAtualTexto01){
+palavraAtualTexto01.textContent = "Aguardando rodada";
+}
+
+if(janelaChat01){
+janelaChat01.innerHTML = "";
+}
+
+if(listaRanking01){
+listaRanking01.innerHTML = "";
+}
+
+}
+
+
+// ===============================
+// SAIR
+// ===============================
+
+function sairPartida(){
+
+if(!usuarioId01) return;
+
+if(typeof removerUsuarioFirebase01 === "function"){
+removerUsuarioFirebase01(usuarioId01);
+}
+
+usuarioLogado01 = false;
+
+if(displayUsuario01){
+displayUsuario01.textContent = "Offline";
+}
+
+if(statusSistema01){
+statusSistema01.textContent = "Offline";
+}
+
+escreverSistema01("Usuário saiu da partida");
+
+}
+
+
+// ===============================
+// RESET GLOBAL ESCUTA
+// ===============================
+
+function escutarResetGlobal01(){
+
+if(!db) return;
+
+db.ref(firebaseReset01).on("value", function(snapshot){
+
+const data = snapshot.val();
+
+if(data){
+resetarJogoCompleto();
+}
+
+});
+
+}
+
+
+// ===============================
+// INICIALIZAÇÃO FINAL
+// ===============================
+
+function iniciarSistemaFinal01(){
+
+if(!db){
+console.error("Firebase não inicializado");
+return;
+}
+
+}
+
+document.addEventListener("DOMContentLoaded", function(){
+iniciarSistemaFinal01();
+});
