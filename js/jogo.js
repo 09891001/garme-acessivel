@@ -1,11 +1,7 @@
 "use strict";
 
 // ===============================
-// GARME ACESSÍVEL - JOGO.JS (VERSÃO CORRIGIDA)
-// ===============================
-
-// ===============================
-// VARIÁVEIS GLOBAIS
+// ESTADO GLOBAL
 // ===============================
 
 let usuarioNome01 = null;
@@ -18,88 +14,105 @@ let palavraAtual01 = null;
 let timerAtual01 = 120;
 let timerIntervalo01 = null;
 
-let rodadaAtual01 = 0;
 let jogoEmAndamento01 = false;
 
 let listaUsuarios01 = {};
 let rankingUsuarios01 = {};
 
+let liderAtual01 = null;
+
+// dicas progressivas
+let intervaloDica01 = null;
+let etapaDica01 = 0;
 
 // ===============================
-// ELEMENTOS DOM
+// BANCO DE PALAVRAS
 // ===============================
 
-let inputNome01;
-let btnEntrarPartida01;
+const bancoPalavras01 = [
+{ palavra:"gato", dicas:["Animal doméstico","Tem quatro patas","Mia"] },
+{ palavra:"avião", dicas:["Voa no céu","Transporta pessoas","Tem asas"] },
+{ palavra:"carro", dicas:["Veículo terrestre","Tem rodas","Anda na rua"] },
+{ palavra:"bola", dicas:["Objeto redondo","Usado em esportes","Quica"] },
+{ palavra:"livro", dicas:["Objeto de leitura","Tem páginas","Conta histórias"] },
+{ palavra:"cachorro", dicas:["Animal doméstico","Late","Melhor amigo do homem"] },
+{ palavra:"árvore", dicas:["Tem folhas","Fica no chão","Tem tronco"] },
+{ palavra:"telefone", dicas:["Faz ligações","Tem tela","Usado no dia a dia"] },
+{ palavra:"cadeira", dicas:["Serve para sentar","Tem pernas","Está em casas"] },
+{ palavra:"relógio", dicas:["Mostra o tempo","Tem horas","Pode ser digital"] },
+{ palavra:"bicicleta", dicas:["Tem duas rodas","Usado para pedalar","Sem motor"] },
+{ palavra:"computador", dicas:["Usado para trabalhar","Tem tela","Tem teclado"] },
+{ palavra:"óculos", dicas:["Ajuda a enxergar","Fica no rosto","Tem lentes"] },
+{ palavra:"janela", dicas:["Entrada de luz","Fica na parede","Pode abrir"] },
+{ palavra:"porta", dicas:["Entrada de casa","Abre e fecha","Tem maçaneta"] },
+{ palavra:"helicóptero", dicas:["Voa com hélice","Não precisa de pista","Faz barulho alto"] },
+{ palavra:"geladeira", dicas:["Mantém frio","Fica na cozinha","Guarda comida"] },
+{ palavra:"chuveiro", dicas:["Usado para banho","Sai água","Fica no banheiro"] },
+{ palavra:"microfone", dicas:["Amplifica voz","Usado para falar","Tem cabo ou não"] },
+{ palavra:"escada", dicas:["Serve para subir","Tem degraus","Pode ser alta"] },
+{ palavra:"dragão", dicas:["Criatura fictícia","Cospe fogo","Tem asas"] },
+{ palavra:"castelo", dicas:["Construção antiga","Reis moravam","Grande"] },
+{ palavra:"robô", dicas:["Máquina inteligente","Pode andar","Faz tarefas"] },
+{ palavra:"planeta", dicas:["No espaço","Gira no universo","Como Terra"] },
+{ palavra:"foguete", dicas:["Vai ao espaço","Tem combustível","Sobe rápido"] }
+];
 
-let btnManual01;
-let btnAuto01;
+let palavrasUsadas01 = [];
 
-let btnLimparQuadro01;
-let btnEnviarChute01;
+// ===============================
+// VOZ
+// ===============================
 
-let btnEntrarRodada01;
-let btnSair01;
-let btnReset01;
+function falarTexto(texto){
+
+if(!window.speechSynthesis) return;
+
+const fala = new SpeechSynthesisUtterance(texto);
+fala.lang = "pt-BR";
+
+window.speechSynthesis.cancel();
+window.speechSynthesis.speak(fala);
+
+}
+
+// ===============================
+// ELEMENTOS
+// ===============================
 
 let areaJogo01;
 let lobby01;
-
-let janelaChat01;
-let listaRanking01;
-
-let timerPartida01;
-let palavraAtualTexto01;
-
 let statusSistema01;
 let displayUsuario01;
-
+let janelaChat01;
+let listaRanking01;
+let timerPartida01;
+let palavraAtualTexto01;
 let areaEscolhaDesenho01;
-
+let statusPartida01;
 
 // ===============================
-// INICIALIZAÇÃO
+// INIT
 // ===============================
 
-document.addEventListener("DOMContentLoaded", function(){
-
-inputNome01 = document.getElementById("nomeUsuario");
-btnEntrarPartida01 = document.getElementById("btnEntrarPartida");
-
-btnManual01 = document.getElementById("btnManual");
-btnAuto01 = document.getElementById("btnAuto");
-
-btnLimparQuadro01 = document.getElementById("btnLimparQuadro");
-btnEnviarChute01 = document.getElementById("btnEnviarChute");
-
-btnEntrarRodada01 = document.getElementById("btnEntrarRodada");
-btnSair01 = document.getElementById("btnSair");
-btnReset01 = document.getElementById("botaoResetAcessivel");
+document.addEventListener("DOMContentLoaded", ()=>{
 
 areaJogo01 = document.getElementById("areaJogo");
 lobby01 = document.getElementById("lobby");
-
-janelaChat01 = document.getElementById("janelaChat");
-listaRanking01 = document.getElementById("listaRanking");
-
-timerPartida01 = document.getElementById("timerPartida");
-palavraAtualTexto01 = document.getElementById("palavraAtual");
-
 statusSistema01 = document.getElementById("statusSistema");
 displayUsuario01 = document.getElementById("displayUsuario");
-
+janelaChat01 = document.getElementById("janelaChat");
+listaRanking01 = document.getElementById("listaRanking");
+timerPartida01 = document.getElementById("timerPartida");
+palavraAtualTexto01 = document.getElementById("palavraAtual");
 areaEscolhaDesenho01 = document.getElementById("areaEscolhaDesenho");
-
-// ❌ REMOVIDO: configurarEventos duplicado (controlado pelo index.html)
+statusPartida01 = document.getElementById("statusPartida");
 
 escutarUsuarios01();
 escutarChat01();
 escutarEstado01();
 escutarRanking01();
-escutarResetGlobal01();
 
 });
-
 
 // ===============================
 // LOGIN
@@ -107,65 +120,48 @@ escutarResetGlobal01();
 
 function realizarLogin(){
 
-if(!inputNome01) return;
+const input = document.getElementById("nomeUsuario");
+if(!input) return;
 
-const nome = inputNome01.value.trim();
-
-if(nome.length < 2){
-
-escreverSistema01("Digite um nome válido");
-return;
-
-}
+const nome = input.value.trim();
+if(nome.length < 2) return;
 
 usuarioNome01 = nome;
 usuarioId01 = Date.now().toString();
-
 usuarioLogado01 = true;
 
 lobby01.style.display = "none";
 areaJogo01.style.display = "block";
 
-displayUsuario01.textContent = usuarioNome01;
+displayUsuario01.textContent = nome;
 statusSistema01.textContent = "Online";
 
-// ✔ USANDO CONFIG.JS
-if(typeof registrarUsuarioFirebase01 === "function"){
-registrarUsuarioFirebase01(usuarioId01, usuarioNome01);
-}
+registrarUsuarioFirebase01(usuarioId01, nome);
 
-escreverSistema01(usuarioNome01 + " entrou na partida");
-
-anunciarAcessibilidade01("Você entrou na partida");
+falarTexto("Bem vindo " + nome);
 
 }
-
 
 // ===============================
-// FIREBASE USUÁRIOS
+// USUÁRIOS
 // ===============================
 
 function escutarUsuarios01(){
 
-if(!db) return;
+db.ref(firebaseUsuarios01).on("value", snap=>{
 
-db.ref(firebaseUsuarios01).on("value", function(snapshot){
-
-const data = snapshot.val();
-
-if(!data){
-
-listaUsuarios01 = {};
-return;
-
-}
+const data = snap.val();
+if(!data) return;
 
 listaUsuarios01 = data;
+
+const nomes = Object.values(data).map(u=>u.nome);
+
+db.ref(firebaseEstado01 + "/jogadores").set(nomes);
 
 });
 
 }
-
 
 // ===============================
 // CHAT
@@ -174,18 +170,12 @@ listaUsuarios01 = data;
 function enviarChute(){
 
 const input = document.getElementById("chutePalavra");
-
 if(!input) return;
 
-const mensagem = input.value.trim();
+const msg = input.value.trim();
+if(!msg) return;
 
-if(mensagem.length === 0) return;
-
-if(typeof enviarMensagemChatFirebase01 === "function"){
-
-enviarMensagemChatFirebase01(usuarioNome01, mensagem);
-
-}
+enviarMensagemChatFirebase01(usuarioNome01, msg);
 
 input.value = "";
 
@@ -193,17 +183,17 @@ input.value = "";
 
 function escutarChat01(){
 
-if(!db) return;
+db.ref(firebaseChat01).on("child_added", snap=>{
 
-db.ref(firebaseChat01).on("child_added", function(snapshot){
+const d = snap.val();
+if(!d) return;
 
-const data = snapshot.val();
+const texto = d.nome + ": " + d.mensagem;
 
-if(!data) return;
+escreverChat01(texto);
+falarTexto(texto);
 
-escreverChat01(data.nome + ": " + data.mensagem);
-
-verificarResposta01(data.mensagem, data.nome);
+verificarResposta01(d.mensagem, d.nome);
 
 });
 
@@ -212,58 +202,233 @@ verificarResposta01(data.mensagem, data.nome);
 function escreverChat01(texto){
 
 const div = document.createElement("div");
-
 div.textContent = texto;
 
 janelaChat01.appendChild(div);
-
 janelaChat01.scrollTop = janelaChat01.scrollHeight;
 
 }
-
-
+ 
 // ===============================
-// SISTEMA
+// TURNOS JUSTOS
 // ===============================
 
-function escreverSistema01(texto){
+function escolherProximoDesenhista01(){
 
-const div = document.createElement("div");
+db.ref(firebaseEstado01).once("value", snap=>{
 
-div.textContent = "Sistema: " + texto;
+const estado = snap.val();
+if(!estado || !estado.jogadores) return;
 
-janelaChat01.appendChild(div);
+let index = estado.turnoIndex || 0;
+index = (index + 1) % estado.jogadores.length;
 
-janelaChat01.scrollTop = janelaChat01.scrollHeight;
+const proximo = estado.jogadores[index];
+
+db.ref(firebaseEstado01).update({
+desenhista: proximo,
+turnoIndex: index,
+emPartida: true
+});
+
+});
 
 }
 
-function anunciarAcessibilidade01(texto){
+// ===============================
+// ESTADO GLOBAL
+// ===============================
 
-const area = document.getElementById("areaAcessivel");
+function escutarEstado01(){
 
-if(!area) return;
+db.ref(firebaseEstado01).on("value", snap=>{
 
-area.textContent = "";
+const estado = snap.val();
+if(!estado) return;
 
-setTimeout(function(){
+desenhistaAtual01 = estado.desenhista;
+palavraAtual01 = estado.palavra;
 
-area.textContent = texto;
+if(statusPartida01){
 
-},100);
+if(usuarioNome01 === desenhistaAtual01){
+statusPartida01.textContent = "Você está desenhando";
+}else{
+statusPartida01.textContent = "Aguardando " + desenhistaAtual01;
+}
 
 }
 
+if(desenhistaAtual01){
+falarTexto("Agora é a vez de " + desenhistaAtual01);
+}
+
+if(usuarioNome01 === desenhistaAtual01){
+
+areaEscolhaDesenho01.style.display = "block";
+
+window.liberarDesenho && window.liberarDesenho();
+
+falarTexto("Você é o desenhista. Escolha manual ou automático");
+
+}else{
+
+areaEscolhaDesenho01.style.display = "none";
+
+window.bloquearDesenho && window.bloquearDesenho();
+
+}
+
+});
+
+}
 
 // ===============================
-// CONTROLE DE RODADAS
+// DICAS
+// ===============================
+
+function iniciarDicas(dicas){
+
+clearInterval(intervaloDica01);
+
+etapaDica01 = 0;
+
+intervaloDica01 = setInterval(()=>{
+
+if(etapaDica01 >= dicas.length){
+clearInterval(intervaloDica01);
+return;
+}
+
+const texto = "Dica: " + dicas[etapaDica01];
+
+falarTexto(texto);
+escreverChat01("Sistema: " + texto);
+
+etapaDica01++;
+
+},10000);
+
+}
+
+// ===============================
+// DESENHO AUTOMÁTICO
+// ===============================
+
+function escolherDesenhoAutomatico(){
+
+if(usuarioNome01 !== desenhistaAtual01) return;
+
+let disponiveis = bancoPalavras01.filter(p=>!palavrasUsadas01.includes(p.palavra));
+
+if(disponiveis.length===0){
+palavrasUsadas01=[];
+disponiveis=bancoPalavras01;
+}
+
+const escolha = disponiveis[Math.floor(Math.random()*disponiveis.length)];
+
+palavrasUsadas01.push(escolha.palavra);
+
+definirPalavraFirebase01(escolha.palavra);
+
+palavraAtualTexto01.textContent = "Desenhando...";
+
+falarTexto("Modo automático selecionado");
+falarTexto("Desenhe algo. " + escolha.dicas[0]);
+
+iniciarDicas(escolha.dicas);
+
+areaEscolhaDesenho01.style.display="none";
+
+}
+
+// ===============================
+// DESENHO MANUAL
+// ===============================
+
+function escolherDesenhoManual(){
+
+if(usuarioNome01 !== desenhistaAtual01) return;
+
+const palavra = prompt("Digite a palavra para os outros adivinharem");
+
+if(!palavra) return;
+
+definirPalavraFirebase01(palavra);
+
+palavraAtualTexto01.textContent = "Desenhando...";
+
+falarTexto("Modo manual selecionado");
+
+areaEscolhaDesenho01.style.display="none";
+
+}
+
+// ===============================
+// RESPOSTA
+// ===============================
+
+function verificarResposta01(msg, nome){
+
+if(!palavraAtual01) return;
+
+if(msg.toLowerCase() === palavraAtual01.toLowerCase()){
+acertouPalavra01(nome);
+}
+
+}
+
+function acertouPalavra01(nome){
+
+const texto = nome + " acertou";
+
+falarTexto(texto);
+atualizarPontuacao01(nome);
+
+finalizarRodada01();
+
+}
+
+// ===============================
+// TIMER
+// ===============================
+
+function iniciarTimer(){
+
+clearInterval(timerIntervalo01);
+
+timerAtual01 = 120;
+
+timerIntervalo01 = setInterval(()=>{
+
+timerAtual01--;
+
+timerPartida01.textContent = "Tempo: " + timerAtual01;
+
+if(timerAtual01<=0){
+finalizarRodada01();
+}
+
+},1000);
+
+}
+
+// ===============================
+// RODADA
 // ===============================
 
 function entrarPartida(){
 
 if(!usuarioLogado01) return;
 
-if(jogoEmAndamento01) return;
+db.ref(firebaseEstado01).set({
+desenhista: usuarioNome01,
+turnoIndex: 0,
+emPartida: true,
+palavra: "",
+jogadores: []
+});
 
 iniciarRodadaCompleta01();
 
@@ -275,226 +440,27 @@ jogoEmAndamento01 = true;
 
 escolherProximoDesenhista01();
 
-iniciarTimerLocal01();
-
-if(typeof limparQuadroSincronizado === "function"){
-limparQuadroSincronizado();
+if(window.limparQuadroSincronizado){
+window.limparQuadroSincronizado();
 }
 
-}
+iniciarTimer();
 
-
-// ===============================
-// DESENHISTA
-// ===============================
-
-function escolherProximoDesenhista01(){
-
-const ids = Object.keys(listaUsuarios01);
-
-if(ids.length === 0) return;
-
-const indice = Math.floor(Math.random() * ids.length);
-
-const id = ids[indice];
-
-const usuario = listaUsuarios01[id];
-
-if(typeof definirDesenhistaFirebase01 === "function"){
-definirDesenhistaFirebase01(usuario.nome);
-}
-
-escreverSistema01(usuario.nome + " é o desenhista");
-
-}
-
-
-// ===============================
-// ESCUTA ESTADO
-// ===============================
-
-function escutarEstado01(){
-
-if(!db) return;
-
-db.ref(firebaseEstado01).on("value", function(snapshot){
-
-const estado = snapshot.val();
-
-if(!estado) return;
-
-desenhistaAtual01 = estado.desenhista;
-palavraAtual01 = estado.palavra;
-
-atualizarControleBotoes01();
-
-});
-
-}
-
-function atualizarControleBotoes01(){
-
-if(usuarioNome01 === desenhistaAtual01){
-
-areaEscolhaDesenho01.style.display = "block";
-
-// ✔ INTEGRAÇÃO COM DESENHO.JS
-if(window.liberarDesenho){
-window.liberarDesenho();
-}
-
-}else{
-
-areaEscolhaDesenho01.style.display = "none";
-
-if(window.bloquearDesenho){
-window.bloquearDesenho();
-}
-
-}
-
-}
-
-
-// ===============================
-// ESCOLHA DESENHO
-// ===============================
-
-function escolherDesenhoManual(){
-
-if(usuarioNome01 !== desenhistaAtual01) return;
-
-const palavra = prompt("Digite a palavra");
-
-if(!palavra) return;
-
-if(typeof definirPalavraFirebase01 === "function"){
-definirPalavraFirebase01(palavra);
-}
-
-palavraAtualTexto01.textContent = "Desenhando...";
-
-areaEscolhaDesenho01.style.display = "none";
-
-}
-
-function escolherDesenhoAutomatico(){
-
-if(usuarioNome01 !== desenhistaAtual01) return;
-
-const palavras = [
-"casa","carro","gato","cachorro","árvore",
-"avião","barco","telefone","livro","bola"
-];
-
-const palavra = palavras[Math.floor(Math.random() * palavras.length)];
-
-if(typeof definirPalavraFirebase01 === "function"){
-definirPalavraFirebase01(palavra);
-}
-
-palavraAtualTexto01.textContent = "Desenhando...";
-
-areaEscolhaDesenho01.style.display = "none";
-
-}
-
-
-// ===============================
-// VERIFICAR RESPOSTA
-// ===============================
-
-function verificarResposta01(mensagem, nome){
-
-if(!palavraAtual01) return;
-
-if(mensagem.toLowerCase() === palavraAtual01.toLowerCase()){
-
-acertouPalavra01(nome);
-
-}
-
-}
-
-function acertouPalavra01(nome){
-
-escreverSistema01(nome + " acertou a palavra");
-
-atualizarPontuacao01(nome);
-
-resetarRodada01();
-
-}
-
-
-// ===============================
-// TIMER
-// ===============================
-
-function iniciarTimerLocal01(){
-
-clearInterval(timerIntervalo01);
-
-timerAtual01 = 120;
-
-timerIntervalo01 = setInterval(function(){
-
-timerAtual01--;
-
-if(timerPartida01){
-timerPartida01.textContent = "Tempo: " + timerAtual01;
-}
-
-if(timerAtual01 <= 0){
-
-clearInterval(timerIntervalo01);
-
-finalizarRodada01();
-
-}
-
-},1000);
+falarTexto("Rodada iniciada");
 
 }
 
 function finalizarRodada01(){
 
-jogoEmAndamento01 = false;
-
-palavraAtual01 = null;
-
-if(palavraAtualTexto01){
-palavraAtualTexto01.textContent = "Aguardando rodada";
-}
-
-escreverSistema01("Tempo esgotado");
-
-anunciarAcessibilidade01("Tempo esgotado");
-
-resetarRodada01();
-
-}
-
-
-// ===============================
-// RESET RODADA
-// ===============================
-
-function resetarRodada01(){
-
 clearInterval(timerIntervalo01);
 
-timerAtual01 = 120;
+falarTexto("Fim da rodada");
 
-if(timerPartida01){
-timerPartida01.textContent = "Tempo: 120";
-}
-
-palavraAtual01 = null;
-jogoEmAndamento01 = false;
+setTimeout(()=>{
+escolherProximoDesenhista01();
+},2000);
 
 }
-
 
 // ===============================
 // RANKING
@@ -503,30 +469,23 @@ jogoEmAndamento01 = false;
 function atualizarPontuacao01(nome){
 
 if(!rankingUsuarios01[nome]){
-rankingUsuarios01[nome] = 0;
+rankingUsuarios01[nome]=0;
 }
 
 rankingUsuarios01[nome]++;
 
-if(typeof atualizarPontuacaoFirebase01 === "function"){
-// opcional manter sincronizado
-}
+falarTexto(nome + " marcou ponto");
+
+db.ref(firebaseRanking01).set(rankingUsuarios01);
 
 }
 
 function escutarRanking01(){
 
-if(!db) return;
+db.ref(firebaseRanking01).on("value", snap=>{
 
-db.ref(firebaseRanking01).on("value", function(snapshot){
-
-const data = snapshot.val();
-
-if(!data){
-rankingUsuarios01 = {};
-renderizarRanking01();
-return;
-}
+const data = snap.val();
+if(!data) return;
 
 rankingUsuarios01 = data;
 
@@ -538,75 +497,33 @@ renderizarRanking01();
 
 function renderizarRanking01(){
 
-if(!listaRanking01) return;
+listaRanking01.innerHTML="";
 
-listaRanking01.innerHTML = "";
+let maior=0;
+let lider=null;
 
-Object.keys(rankingUsuarios01).forEach(function(nome){
+Object.keys(rankingUsuarios01).forEach(nome=>{
+
+const pontos = rankingUsuarios01[nome];
+
+if(pontos>maior){
+maior=pontos;
+lider=nome;
+}
 
 const li = document.createElement("li");
-
-li.textContent = nome + " - " + rankingUsuarios01[nome];
+li.textContent = nome+" - "+pontos;
 
 listaRanking01.appendChild(li);
 
 });
 
-}
-
-
-// ===============================
-// RESET GLOBAL
-// ===============================
-
-function resetarJogoCompleto(){
-
-if(typeof resetarFirebaseCompleto01 === "function"){
-resetarFirebaseCompleto01();
-}
-
-resetarEstadoLocal01();
-resetarInterface01();
-
-if(typeof limparQuadroSincronizado === "function"){
-limparQuadroSincronizado();
-}
-
-escreverSistema01("Jogo resetado");
-anunciarAcessibilidade01("Jogo resetado");
-
-}
-
-function resetarEstadoLocal01(){
-
-desenhistaAtual01 = null;
-palavraAtual01 = null;
-timerAtual01 = 120;
-rodadaAtual01 = 0;
-jogoEmAndamento01 = false;
-
-}
-
-function resetarInterface01(){
-
-if(timerPartida01){
-timerPartida01.textContent = "Tempo: 120";
-}
-
-if(palavraAtualTexto01){
-palavraAtualTexto01.textContent = "Aguardando rodada";
-}
-
-if(janelaChat01){
-janelaChat01.innerHTML = "";
-}
-
-if(listaRanking01){
-listaRanking01.innerHTML = "";
+if(lider && lider!==liderAtual01){
+liderAtual01=lider;
+falarTexto("Novo líder " + lider);
 }
 
 }
-
 
 // ===============================
 // SAIR
@@ -616,59 +533,64 @@ function sairPartida(){
 
 if(!usuarioId01) return;
 
-if(typeof removerUsuarioFirebase01 === "function"){
 removerUsuarioFirebase01(usuarioId01);
-}
 
-usuarioLogado01 = false;
+usuarioLogado01=false;
 
-if(displayUsuario01){
-displayUsuario01.textContent = "Offline";
-}
+displayUsuario01.textContent="Offline";
+statusSistema01.textContent="Offline";
 
-if(statusSistema01){
-statusSistema01.textContent = "Offline";
-}
+jogoEmAndamento01=false;
 
-escreverSistema01("Usuário saiu da partida");
+falarTexto("Você saiu da partida");
 
 }
-
 
 // ===============================
-// RESET GLOBAL ESCUTA
+// RESET
 // ===============================
 
-function escutarResetGlobal01(){
+function resetarJogoCompleto(){
 
-if(!db) return;
-
-db.ref(firebaseReset01).on("value", function(snapshot){
-
-const data = snapshot.val();
-
-if(data){
-resetarJogoCompleto();
+if(typeof resetarFirebaseCompleto01 === "function"){
+resetarFirebaseCompleto01();
 }
 
-});
+jogoEmAndamento01=false;
+palavraAtual01=null;
 
+clearInterval(timerIntervalo01);
+
+if(window.limparQuadroSincronizado){
+window.limparQuadroSincronizado();
 }
 
+if(palavraAtualTexto01){
+palavraAtualTexto01.textContent="Aguardando rodada";
+}
+
+if(timerPartida01){
+timerPartida01.textContent="Tempo: 120";
+}
+
+falarTexto("Jogo resetado");
+
+}
 
 // ===============================
-// INICIALIZAÇÃO FINAL
+// EXPORT GLOBAL
 // ===============================
 
-function iniciarSistemaFinal01(){
+window.realizarLogin = realizarLogin;
+window.enviarChute = enviarChute;
+window.entrarPartida = entrarPartida;
+window.sairPartida = sairPartida;
+window.resetarJogoCompleto = resetarJogoCompleto;
+window.escolherDesenhoAutomatico = escolherDesenhoAutomatico;
+window.escolherDesenhoManual = escolherDesenhoManual;
 
-if(!db){
-console.error("Firebase não inicializado");
-return;
-}
+// ===============================
+// LOG FINAL
+// ===============================
 
-}
-
-document.addEventListener("DOMContentLoaded", function(){
-iniciarSistemaFinal01();
-});
+console.log("JOGO.JS COMPLETO E FUNCIONAL");

@@ -15,20 +15,14 @@
 
 <body>
 
-<!-- ACESSIBILIDADE GLOBAL -->
-<div 
-id="areaAcessivel"
-class="sr-only"
-aria-live="assertive"
-role="alert">
+<!-- ACESSIBILIDADE -->
+<div id="areaAcessivel" class="sr-only" aria-live="assertive" role="alert">
 Sistema carregado
 </div>
 
-<header id="cabecalhoPrincipal">
+<header>
 
-<h1 id="tituloPrincipal">
-GARME ACESSÍVEL
-</h1>
+<h1 id="tituloPrincipal">GARME ACESSÍVEL</h1>
 
 <div id="statusSistema" aria-live="polite">
 Aguardando login...
@@ -40,148 +34,114 @@ Offline
 
 </header>
 
-<main id="conteudoPrincipal">
+<main>
 
 <!-- LOGIN -->
-<section 
-id="lobby"
-role="region"
-aria-label="Tela de login">
+<section id="lobby">
 
-<h2 id="tituloLogin">
-Entrar no Jogo
-</h2>
+<h2>Entrar no Jogo</h2>
 
-<label for="nomeUsuario">
-Como você quer ser chamado?
-</label>
+<label for="nomeUsuario">Como você quer ser chamado?</label>
 
-<input 
-type="text"
-id="nomeUsuario"
-placeholder="Digite seu nome"
-aria-label="Digite seu nome"
-autocomplete="off"
-/>
+<input type="text" id="nomeUsuario" placeholder="Digite seu nome" />
 
-<button 
-id="btnEntrarPartida"
-aria-label="Entrar na partida">
+<button id="btnEntrarPartida">
 Entrar na partida
 </button>
 
 </section>
 
 <!-- JOGO -->
-<section 
-id="areaJogo"
-style="display:none;"
-aria-label="Área do jogo">
+<section id="areaJogo" style="display:none;">
 
-<!-- CONTROLE -->
-<section 
-id="controleJogo"
-aria-label="Controle do jogo">
-
-<div id="timerPartida" aria-live="polite">
-Tempo: 120
+<!-- STATUS DA PARTIDA -->
+<div id="statusPartida" aria-live="polite">
+Aguardando jogadores...
 </div>
 
-<div id="palavraAtual" aria-live="polite">
-Aguardando rodada
-</div>
+<!-- TOPO -->
+<section id="controleJogo">
+
+<div id="timerPartida">Tempo: 120</div>
+<div id="palavraAtual">Aguardando rodada</div>
 
 </section>
 
-<!-- ESCOLHA DESENHO -->
-<section 
-id="areaEscolhaDesenho"
-style="display:none;"
-aria-label="Escolher tipo de desenho">
+<!-- ESCOLHA DO DESENHO -->
+<section id="areaEscolhaDesenho" style="display:none;">
 
-<button id="btnManual" aria-label="Selecionar desenho manual">
-Selecionar desenho manual
+<h2>Você é o desenhista</h2>
+
+<p>Escolha como deseja jogar:</p>
+
+<button id="btnManual">
+✏️ Desenho Manual
 </button>
 
-<button id="btnAuto" aria-label="Selecionar desenho automático">
-Selecionar desenho automático
+<button id="btnAuto">
+🎲 Desenho Automático
 </button>
 
 </section>
 
-<!-- LISTA (mantido para compatibilidade futura) -->
-<section id="listaDesenhos" aria-label="Lista de desenhos"></section>
-
-<!-- DESENHO -->
-<section id="areaDesenho" aria-label="Área de desenho">
+<!-- ÁREA DE DESENHO -->
+<section id="areaDesenho">
 
 <h2>Área de desenho</h2>
 
+<p id="descricaoDesenho">
+Use mouse, toque ou teclado para desenhar
+</p>
+
 <canvas 
 id="quadroDesenho"
-role="img"
-aria-label="Quadro de desenho"
-tabindex="0">
+tabindex="0"
+aria-label="Quadro de desenho">
 </canvas>
 
-<button id="btnLimparQuadro" aria-label="Limpar quadro">
-Limpar quadro
+<button id="btnLimparQuadro">
+🧹 Limpar quadro
 </button>
 
 </section>
 
 <!-- CHAT -->
-<section id="areaChat" aria-label="Chat do jogo">
+<section id="areaChat">
 
 <h2>Chat</h2>
 
-<div 
-id="janelaChat"
-role="log"
-aria-live="polite"
-aria-relevant="additions"
-tabindex="0">
-</div>
+<div id="janelaChat" tabindex="0"></div>
 
-<input
-type="text"
-id="chutePalavra"
-placeholder="Digite sua resposta"
-aria-label="Digite sua resposta"
-autocomplete="off"
-/>
+<input type="text" id="chutePalavra" placeholder="Digite sua resposta" />
 
-<button id="btnEnviarChute" aria-label="Enviar resposta">
+<button id="btnEnviarChute">
 Enviar
 </button>
 
 </section>
 
 <!-- RANKING -->
-<section id="areaRanking" aria-label="Ranking do jogo">
+<section id="areaRanking">
 
 <h2>Ranking</h2>
 
-<ul id="listaRanking" aria-live="polite"></ul>
+<ul id="listaRanking"></ul>
 
 </section>
 
-<!-- CONTROLE PARTIDA -->
-<section id="controlePartida" aria-label="Controle da partida">
+<!-- CONTROLE -->
+<section id="controlePartida">
 
-<button id="btnEntrarRodada" aria-label="Iniciar rodada">
-Entrar na rodada
+<button id="btnEntrarRodada">
+▶️ Iniciar rodada
 </button>
 
-<button id="btnSair" aria-label="Sair da partida">
-Sair da partida
+<button id="btnSair">
+🚪 Sair
 </button>
 
-<button 
-id="botaoResetAcessivel"
-aria-label="Resetar jogo"
-class="btnAcessivel">
-Resetar jogo
+<button id="botaoResetAcessivel">
+♻️ Resetar
 </button>
 
 </section>
@@ -190,19 +150,14 @@ Resetar jogo
 
 </main>
 
-<footer id="rodapePrincipal">
-
-<div id="rodapeStatus" aria-live="polite">
-Sistema carregado
-</div>
-
+<footer>
+Sistema ativo
 </footer>
 
 <!-- FIREBASE -->
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
 <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
-<!-- SCRIPTS -->
 <script src="js/config.js"></script>
 <script src="js/desenho.js"></script>
 <script src="js/jogo.js"></script>
@@ -213,130 +168,54 @@ Sistema carregado
 document.addEventListener("DOMContentLoaded", function(){
 
 // LOGIN
-const inputNome = document.getElementById("nomeUsuario");
-if(inputNome){
-inputNome.addEventListener("keypress", function(e){
-if(e.key === "Enter" && window.realizarLogin){
-window.realizarLogin();
-}
+document.getElementById("btnEntrarPartida")?.addEventListener("click", () => {
+window.realizarLogin && window.realizarLogin();
 });
-}
 
-const btnEntrar = document.getElementById("btnEntrarPartida");
-if(btnEntrar){
-btnEntrar.addEventListener("click", function(){
-if(window.realizarLogin){
-window.realizarLogin();
+// ENTER LOGIN
+document.getElementById("nomeUsuario")?.addEventListener("keypress", (e)=>{
+if(e.key==="Enter"){
+window.realizarLogin && window.realizarLogin();
 }
 });
-}
 
 // CHAT
-const inputChute = document.getElementById("chutePalavra");
-if(inputChute){
-inputChute.addEventListener("keypress", function(e){
-if(e.key === "Enter" && window.enviarChute){
-window.enviarChute();
-}
+document.getElementById("btnEnviarChute")?.addEventListener("click", ()=>{
+window.enviarChute && window.enviarChute();
 });
-}
 
-const btnEnviar = document.getElementById("btnEnviarChute");
-if(btnEnviar){
-btnEnviar.addEventListener("click", function(){
-if(window.enviarChute){
-window.enviarChute();
+document.getElementById("chutePalavra")?.addEventListener("keypress",(e)=>{
+if(e.key==="Enter"){
+window.enviarChute && window.enviarChute();
 }
 });
-}
 
 // DESENHO
-const btnManual = document.getElementById("btnManual");
-if(btnManual){
-btnManual.addEventListener("click", function(){
-if(window.escolherDesenhoManual){
-window.escolherDesenhoManual();
-}
+document.getElementById("btnManual")?.addEventListener("click", ()=>{
+window.escolherDesenhoManual && window.escolherDesenhoManual();
 });
-}
 
-const btnAuto = document.getElementById("btnAuto");
-if(btnAuto){
-btnAuto.addEventListener("click", function(){
-if(window.escolherDesenhoAutomatico){
-window.escolherDesenhoAutomatico();
-}
+document.getElementById("btnAuto")?.addEventListener("click", ()=>{
+window.escolherDesenhoAutomatico && window.escolherDesenhoAutomatico();
 });
-}
 
-const btnLimpar = document.getElementById("btnLimparQuadro");
-if(btnLimpar){
-btnLimpar.addEventListener("click", function(){
-if(window.limparQuadroSincronizado){
-window.limparQuadroSincronizado();
-}
+document.getElementById("btnLimparQuadro")?.addEventListener("click", ()=>{
+window.limparQuadroSincronizado && window.limparQuadroSincronizado();
 });
-}
 
 // PARTIDA
-const btnEntrarRodada = document.getElementById("btnEntrarRodada");
-if(btnEntrarRodada){
-btnEntrarRodada.addEventListener("click", function(){
-if(window.entrarPartida){
-window.entrarPartida();
-}
-});
-}
-
-const btnSair = document.getElementById("btnSair");
-if(btnSair){
-btnSair.addEventListener("click", function(){
-if(window.sairPartida){
-window.sairPartida();
-}
-});
-}
-
-const btnReset = document.getElementById("botaoResetAcessivel");
-if(btnReset){
-btnReset.addEventListener("click", function(){
-if(window.resetarJogoCompleto){
-window.resetarJogoCompleto();
-}
-});
-}
-
+document.getElementById("btnEntrarRodada")?.addEventListener("click", ()=>{
+window.entrarPartida && window.entrarPartida();
 });
 
-// ACESSIBILIDADE TECLADO
-function focarAreaChat(){
-const chat = document.getElementById("janelaChat");
-if(chat) chat.focus();
-}
-
-function focarCanvas(){
-const canvas = document.getElementById("quadroDesenho");
-if(canvas) canvas.focus();
-}
-
-document.addEventListener("keydown", function(e){
-
-if(e.altKey && e.key === "1"){
-focarAreaChat();
-}
-
-if(e.altKey && e.key === "2"){
-focarCanvas();
-}
-
+document.getElementById("btnSair")?.addEventListener("click", ()=>{
+window.sairPartida && window.sairPartida();
 });
 
-// FEEDBACK INICIAL
-window.addEventListener("load", function(){
-const area = document.getElementById("areaAcessivel");
-if(area){
-area.textContent = "Sistema carregado";
-}
+document.getElementById("botaoResetAcessivel")?.addEventListener("click", ()=>{
+window.resetarJogoCompleto && window.resetarJogoCompleto();
+});
+
 });
 
 </script>

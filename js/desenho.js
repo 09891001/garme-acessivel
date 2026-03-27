@@ -1,9 +1,8 @@
-/* =========================================================
-   GARME ACESSÍVEL - DESENHO.JS
-   Controle completo de canvas acessível sincronizado
-========================================================= */
-
 "use strict";
+
+/* =========================================================
+   GARME ACESSÍVEL - DESENHO.JS FINAL
+========================================================= */
 
 /* =========================================================
    VARIÁVEIS GLOBAIS
@@ -34,9 +33,7 @@ function inicializarDesenho() {
     ctxDesenho = canvasDesenho.getContext("2d");
 
     configurarEventosCanvas();
-
     ajustarCanvasResponsivo();
-
 }
 
 /* =========================================================
@@ -51,7 +48,6 @@ function ajustarCanvasResponsivo() {
 
     canvasDesenho.width = largura;
     canvasDesenho.height = largura * 0.6;
-
 }
 
 /* =========================================================
@@ -69,7 +65,6 @@ function configurarEventosCanvas() {
     canvasDesenho.addEventListener("touchstart", iniciarDesenhoTouch);
     canvasDesenho.addEventListener("touchmove", desenharTouch);
     canvasDesenho.addEventListener("touchend", pararDesenho);
-
 }
 
 /* =========================================================
@@ -86,12 +81,12 @@ function iniciarDesenhoMouse(e) {
 
     ultimoX = e.clientX - rect.left;
     ultimoY = e.clientY - rect.top;
-
 }
 
 function desenharMouse(e) {
 
     if (!desenhando) return;
+    if (!modoDesenhoAtivo) return;
 
     const rect = canvasDesenho.getBoundingClientRect();
 
@@ -100,17 +95,17 @@ function desenharMouse(e) {
 
     desenharLinhaLocal(ultimoX, ultimoY, x, y);
 
-    if (window.enviarPontoDesenho) {
-        window.enviarPontoDesenho(x, y);
+    // ENVIO PARA MULTIPLAYER
+    if (window.enviarPontoDesenho01) {
+        window.enviarPontoDesenho01(x, y);
     }
 
     ultimoX = x;
     ultimoY = y;
-
 }
 
 /* =========================================================
-   DESENHO TOUCH
+   DESENHO TOUCH (CELULAR)
 ========================================================= */
 
 function iniciarDesenhoTouch(e) {
@@ -120,20 +115,18 @@ function iniciarDesenhoTouch(e) {
     desenhando = true;
 
     const rect = canvasDesenho.getBoundingClientRect();
-
     const touch = e.touches[0];
 
     ultimoX = touch.clientX - rect.left;
     ultimoY = touch.clientY - rect.top;
-
 }
 
 function desenharTouch(e) {
 
     if (!desenhando) return;
+    if (!modoDesenhoAtivo) return;
 
     const rect = canvasDesenho.getBoundingClientRect();
-
     const touch = e.touches[0];
 
     const x = touch.clientX - rect.left;
@@ -141,19 +134,16 @@ function desenharTouch(e) {
 
     desenharLinhaLocal(ultimoX, ultimoY, x, y);
 
-    if (window.enviarPontoDesenho) {
-        window.enviarPontoDesenho(x, y);
+    if (window.enviarPontoDesenho01) {
+        window.enviarPontoDesenho01(x, y);
     }
 
     ultimoX = x;
     ultimoY = y;
-
 }
 
 function pararDesenho() {
-
     desenhando = false;
-
 }
 
 /* =========================================================
@@ -172,11 +162,10 @@ function desenharLinhaLocal(x1, y1, x2, y2) {
     ctxDesenho.moveTo(x1, y1);
     ctxDesenho.lineTo(x2, y2);
     ctxDesenho.stroke();
-
 }
 
 /* =========================================================
-   DESENHO REMOTO
+   DESENHO REMOTO (OUTROS JOGADORES)
 ========================================================= */
 
 function desenharPontoRemoto(x, y) {
@@ -185,7 +174,6 @@ function desenharPontoRemoto(x, y) {
 
     ultimoX = x;
     ultimoY = y;
-
 }
 
 /* =========================================================
@@ -202,21 +190,21 @@ function limparQuadroLocal() {
         canvasDesenho.width,
         canvasDesenho.height
     );
-
 }
 
 /* =========================================================
-   LIMPAR SINCRONIZADO
+   LIMPAR SINCRONIZADO (FIREBASE)
 ========================================================= */
 
 function limparQuadroSincronizado() {
 
     limparQuadroLocal();
 
-    if (window.refDesenho) {
-        window.refDesenho.set(null);
+    if (window.limparDesenhoFirebase01) {
+        window.limparDesenhoFirebase01();
     }
 
+    anunciarDesenho("Quadro limpo");
 }
 
 /* =========================================================
@@ -224,15 +212,12 @@ function limparQuadroSincronizado() {
 ========================================================= */
 
 function ativarModoDesenho() {
-
     modoDesenhoAtivo = true;
-
+    anunciarDesenho("Modo desenho ativado");
 }
 
 function desativarModoDesenho() {
-
     modoDesenhoAtivo = false;
-
 }
 
 /* =========================================================
@@ -246,82 +231,22 @@ function anunciarDesenho(msg) {
     if (!area) return;
 
     area.innerText = msg;
-
 }
 
-/* =========================================================
-   BOTÃO LIMPAR
-========================================================= */
-
-function botaoLimparQuadro() {
-
-    const btn = document.getElementById("btnLimparQuadro");
-
-    if (!btn) return;
-
-    btn.addEventListener("click", () => {
-
-        limparQuadroSincronizado();
-
-        anunciarDesenho("Quadro limpo");
-
-    });
-
-}
 /* =========================================================
    CONTROLE DE LINHA
 ========================================================= */
 
 function alterarEspessura(valor) {
-
     espessuraLinha = valor;
-
 }
 
 function alterarCor(cor) {
-
     corLinha = cor;
-
 }
 
 /* =========================================================
    TECLADO ACESSÍVEL
-========================================================= */
-
-function configurarTecladoAcessivel() {
-
-    document.addEventListener("keydown", (e) => {
-
-        if (!modoDesenhoAtivo) return;
-
-        if (e.key === "Delete") {
-
-            limparQuadroSincronizado();
-
-        }
-
-        if (e.altKey && e.key === "ArrowUp") {
-
-            espessuraLinha++;
-
-        }
-
-        if (e.altKey && e.key === "ArrowDown") {
-
-            espessuraLinha--;
-
-            if (espessuraLinha < 1) {
-                espessuraLinha = 1;
-            }
-
-        }
-
-    });
-
-}
-
-/* =========================================================
-   DESENHO POR TECLADO
 ========================================================= */
 
 let cursorX = 50;
@@ -341,19 +266,18 @@ function desenharTeclado(e) {
 
     desenharLinhaLocal(cursorX, cursorY, novoX, novoY);
 
-    if (window.enviarPontoDesenho) {
-        window.enviarPontoDesenho(novoX, novoY);
+    if (window.enviarPontoDesenho01) {
+        window.enviarPontoDesenho01(novoX, novoY);
     }
 
     cursorX = novoX;
     cursorY = novoY;
-
 }
 
 document.addEventListener("keydown", desenharTeclado);
 
 /* =========================================================
-   DETECTAR TAMANHO TELA
+   RESPONSIVO
 ========================================================= */
 
 function detectarTela() {
@@ -362,36 +286,8 @@ function detectarTela() {
 
     const largura = window.innerWidth;
 
-    if (largura < 600) {
-
-        espessuraLinha = 5;
-
-    } else {
-
-        espessuraLinha = 3;
-
-    }
-
+    espessuraLinha = largura < 600 ? 5 : 3;
 }
-
-/* =========================================================
-   REINICIAR DESENHO
-========================================================= */
-
-function resetarDesenhoCompleto() {
-
-    limparQuadroLocal();
-
-    cursorX = 50;
-    cursorY = 50;
-
-    espessuraLinha = 3;
-
-}
-
-/* =========================================================
-   EVENTOS WINDOW
-========================================================= */
 
 window.addEventListener("resize", () => {
 
@@ -401,16 +297,17 @@ window.addEventListener("resize", () => {
 });
 
 /* =========================================================
-   SINCRONIZAÇÃO
+   SINCRONIZAÇÃO FIREBASE
 ========================================================= */
 
 function sincronizarDesenhoCompleto() {
 
-    if (!window.refDesenho) return;
+    if (!window.db || !window.firebaseDesenho01) return;
 
-    window.refDesenho.child("pontos").on("child_added", (snapshot) => {
+    window.db.ref(firebaseDesenho01 + "/pontos").on("child_added", (snapshot) => {
 
         const ponto = snapshot.val();
+        if (!ponto) return;
 
         desenharPontoRemoto(ponto.x, ponto.y);
 
@@ -419,48 +316,7 @@ function sincronizarDesenhoCompleto() {
 }
 
 /* =========================================================
-   MODO DESENHISTA
-========================================================= */
-
-function definirDesenhista(valor) {
-
-    if (valor) {
-
-        ativarModoDesenho();
-
-    } else {
-
-        desativarModoDesenho();
-
-    }
-
-}
-
-/* =========================================================
-   INICIALIZAÇÃO
-========================================================= */
-
-function iniciarDesenhoSistema() {
-
-    inicializarDesenho();
-    botaoLimparQuadro();
-    configurarTecladoAcessivel();
-    detectarTela();
-    sincronizarDesenhoCompleto();
-
-}
-
-/* =========================================================
-   CARREGAMENTO
-========================================================= */
-
-window.addEventListener("load", () => {
-
-    iniciarDesenhoSistema();
-
-});
-/* =========================================================
-   RESET COMPLETO DO DESENHO (INTEGRAÇÃO COM JOGO.JS)
+   RESET COMPLETO
 ========================================================= */
 
 function resetarDesenhoJogoCompleto() {
@@ -473,81 +329,50 @@ function resetarDesenhoJogoCompleto() {
     desenhando = false;
 
     espessuraLinha = 3;
-
     corLinha = "#000000";
-
 }
 
 /* =========================================================
-   BLOQUEIO DE DESENHO QUANDO NÃO FOR DESENHISTA
+   BLOQUEIO / LIBERAÇÃO
 ========================================================= */
 
 function bloquearDesenho() {
-
     modoDesenhoAtivo = false;
-
 }
 
 function liberarDesenho() {
-
     modoDesenhoAtivo = true;
-
 }
 
 /* =========================================================
-   GARANTIA DE SINCRONIZAÇÃO FIREBASE
+   INICIALIZAÇÃO FINAL
 ========================================================= */
 
-function limparFirebaseDesenho() {
+function iniciarDesenhoSistema() {
 
-    if (window.refDesenho) {
-
-        window.refDesenho.set(null);
-
-    }
-
-}
-
-/* =========================================================
-   SINCRONIZAÇÃO COMPLETA
-========================================================= */
-
-function sincronizacaoCompletaDesenho() {
-
+    inicializarDesenho();
+    detectarTela();
     sincronizarDesenhoCompleto();
 
 }
 
+window.addEventListener("load", () => {
+    iniciarDesenhoSistema();
+});
+
 /* =========================================================
-   GARANTIA FUNÇÃO GLOBAL
+   EXPORT GLOBAL
 ========================================================= */
 
 window.limparQuadroLocal = limparQuadroLocal;
 window.limparQuadroSincronizado = limparQuadroSincronizado;
 window.desenharPontoRemoto = desenharPontoRemoto;
 window.resetarDesenhoJogoCompleto = resetarDesenhoJogoCompleto;
-window.definirDesenhista = definirDesenhista;
 window.bloquearDesenho = bloquearDesenho;
 window.liberarDesenho = liberarDesenho;
 
 /* =========================================================
-   GARANTIA FINAL
+   LOG FINAL
 ========================================================= */
 
-function garantirDesenhoSistema() {
-
-    if (!canvasDesenho) {
-
-        inicializarDesenho();
-
-    }
-
-}
-
-setTimeout(garantirDesenhoSistema, 1500);
-
-/* =========================================================
-   SISTEMA CARREGADO
-========================================================= */
-
-console.log("DESENHO.JS CARREGADO COMPLETO");
+console.log("DESENHO.JS FINAL PRONTO E SINCRONIZADO");
