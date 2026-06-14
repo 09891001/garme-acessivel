@@ -1,224 +1,213 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-<title>Garme Acessível</title>
-
-<link rel="stylesheet" href="css/stylo.css">
-<link rel="icon" href="data:,">
-
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Garme Acessível</title>
+    <meta name="description" content="Jogo multiplayer de desenho e adivinhação acessível para todos">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:,">
+    <link rel="stylesheet" href="css/stylo.css">
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 </head>
-
 <body>
-
-<!-- ACESSIBILIDADE -->
-<div id="areaAcessivel" class="sr-only" aria-live="assertive" role="alert">
-Sistema carregado
-</div>
-
-<header>
-
-<h1 id="tituloPrincipal">GARME ACESSÍVEL</h1>
-
-<div id="statusSistema" aria-live="polite">
-Aguardando login...
-</div>
-
-<div id="displayUsuario" aria-live="polite">
-Offline
-</div>
-
-</header>
-
-<main>
-
-<!-- LOGIN -->
-<section id="lobby">
-
-<h2>Entrar no Jogo</h2>
-
-<label for="nomeUsuario">Como você quer ser chamado?</label>
-
-<input type="text" id="nomeUsuario" placeholder="Digite seu nome" />
-
-<button id="btnEntrarPartida">
-Entrar na partida
-</button>
-
-</section>
-
-<!-- JOGO -->
-<section id="areaJogo" style="display:none;">
-
-<!-- STATUS DA PARTIDA -->
-<div id="statusPartida" aria-live="polite">
-Aguardando jogadores...
-</div>
-
-<!-- TOPO -->
-<section id="controleJogo">
-
-<div id="timerPartida">Tempo: 120</div>
-<div id="palavraAtual">Aguardando rodada</div>
-
-</section>
-
-<!-- ESCOLHA DO DESENHO -->
-<section id="areaEscolhaDesenho" style="display:none;">
-
-<h2>Você é o desenhista</h2>
-
-<p>Escolha como deseja jogar:</p>
-
-<button id="btnManual">
-✏️ Desenho Manual
-</button>
-
-<button id="btnAuto">
-🎲 Desenho Automático
-</button>
-
-</section>
-
-<!-- ÁREA DE DESENHO -->
-<section id="areaDesenho">
-
-<h2>Área de desenho</h2>
-
-<p id="descricaoDesenho">
-Use mouse, toque ou teclado para desenhar
-</p>
-
-<canvas 
-id="quadroDesenho"
-tabindex="0"
-aria-label="Quadro de desenho">
-</canvas>
-
-<button id="btnLimparQuadro">
-🧹 Limpar quadro
-</button>
-
-</section>
-
-<!-- CHAT -->
-<section id="areaChat">
-
-<h2>Chat</h2>
-
-<div id="janelaChat" tabindex="0"></div>
-
-<input type="text" id="chutePalavra" placeholder="Digite sua resposta" />
-
-<button id="btnEnviarChute">
-Enviar
-</button>
-
-</section>
-
-<!-- RANKING -->
-<section id="areaRanking">
-
-<h2>Ranking</h2>
-
-<ul id="listaRanking"></ul>
-
-</section>
-
-<!-- CONTROLE -->
-<section id="controlePartida">
-
-<button id="btnEntrarRodada">
-▶️ Iniciar rodada
-</button>
-
-<button id="btnSair">
-🚪 Sair
-</button>
-
-<button id="botaoResetAcessivel">
-♻️ Resetar
-</button>
-
-</section>
-
-</section>
-
-</main>
-
-<footer>
-Sistema ativo
-</footer>
-
-<!-- FIREBASE -->
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-
-<script src="js/config.js"></script>
-<script src="js/desenho.js"></script>
-<script src="js/jogo.js"></script>
-
-<!-- EVENTOS CENTRALIZADOS -->
-<script>
-
-document.addEventListener("DOMContentLoaded", function(){
-
-// LOGIN
-document.getElementById("btnEntrarPartida")?.addEventListener("click", () => {
-window.realizarLogin && window.realizarLogin();
-});
-
-// ENTER LOGIN
-document.getElementById("nomeUsuario")?.addEventListener("keypress", (e)=>{
-if(e.key==="Enter"){
-window.realizarLogin && window.realizarLogin();
-}
-});
-
-// CHAT
-document.getElementById("btnEnviarChute")?.addEventListener("click", ()=>{
-window.enviarChute && window.enviarChute();
-});
-
-document.getElementById("chutePalavra")?.addEventListener("keypress",(e)=>{
-if(e.key==="Enter"){
-window.enviarChute && window.enviarChute();
-}
-});
-
-// DESENHO
-document.getElementById("btnManual")?.addEventListener("click", ()=>{
-window.escolherDesenhoManual && window.escolherDesenhoManual();
-});
-
-document.getElementById("btnAuto")?.addEventListener("click", ()=>{
-window.escolherDesenhoAutomatico && window.escolherDesenhoAutomatico();
-});
-
-document.getElementById("btnLimparQuadro")?.addEventListener("click", ()=>{
-window.limparQuadroSincronizado && window.limparQuadroSincronizado();
-});
-
-// PARTIDA
-document.getElementById("btnEntrarRodada")?.addEventListener("click", ()=>{
-window.entrarPartida && window.entrarPartida();
-});
-
-document.getElementById("btnSair")?.addEventListener("click", ()=>{
-window.sairPartida && window.sairPartida();
-});
-
-document.getElementById("botaoResetAcessivel")?.addEventListener("click", ()=>{
-window.resetarJogoCompleto && window.resetarJogoCompleto();
-});
-
-});
-
-</script>
-
+    <a href="#lobby" class="pular-nav">Pular para conteúdo principal</a>
+
+    <div id="sr-announcer" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="anuncioAcessivel" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="anuncioPrioritario" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+    <header role="banner">
+        <h1>GARME ACESSÍVEL</h1>
+        <div class="status-topo" aria-hidden="true">
+            <span id="statusSistema" class="badge" aria-current="step">Conectando...</span>
+            <span id="displayUsuario" class="badge">Offline</span>
+            <span class="badge">Tempo: <span id="cronometro">--:--</span></span>
+            <span class="badge">Online: <span id="contadorOnline">0</span></span>
+        </div>
+        <div id="srStatusconexao" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    </header>
+
+    <div id="countdownOverlay" class="countdown-overlay" style="display:none"></div>
+
+    <main role="main">
+
+        <section id="lobby" class="lobby-wrapper" aria-labelledby="tituloLobby">
+            <div class="card-login" id="telaEntrada">
+                <h2 id="tituloLobby">Garme Acessível</h2>
+                <div class="input-grupo">
+                    <label for="nomeUsuario" class="sr-only">Seu nome ou apelido</label>
+                    <input type="text" id="nomeUsuario" placeholder="Seu nome" autocomplete="off" aria-required="true" maxlength="20">
+                    <button id="btnEntrar" class="btn-acao" aria-label="Entrar na sala">Entrar na Sala</button>
+                </div>
+                <p class="aviso-acessivel">Jogo multiplayer de desenho acessível. Compatível com leitores de tela.</p>
+            </div>
+
+            <div id="salaEspera" style="display:none" class="lobby-content">
+                <div class="lobby-grid">
+                    <div class="lobby-main">
+                        <h2 id="tituloSala">Sala de Espera</h2>
+                        <div class="jogadores-box" role="region" aria-labelledby="tituloJogadores">
+                            <h3 id="tituloJogadores">Jogadores na Sala</h3>
+                            <ul id="listaJogadores" class="jogadores-lista"></ul>
+                        </div>
+                        <p id="statusSala" class="status-sala" aria-live="polite">Aguardando jogadores...</p>
+                        <div id="nomeContainer" class="nome-container" style="display:none">
+                            <span id="nomeAtual" class="nome-atual"></span>
+                            <button id="btnAlterarNome" class="btn-acao btn-alterar-nome" aria-label="Alterar nome">Alterar nome</button>
+                            <input type="text" id="inputNovoNome" class="input-nome" style="display:none" maxlength="20" aria-label="Novo nome">
+                            <button id="btnConfirmarNome" class="btn-sucesso" style="display:none" aria-label="Confirmar novo nome">OK</button>
+                        </div>
+                        <button id="btnIniciar" class="btn-sucesso btn-iniciar" style="display:none" aria-label="Iniciar partida">Iniciar Partida</button>
+                        <button id="btnSairLobby" class="btn-perigo" aria-label="Sair da sala">Sair</button>
+                    </div>
+                    <div class="lobby-ranking-box" role="region" aria-labelledby="tituloLobbyRanking">
+                        <h3 id="tituloLobbyRanking">Ranking Geral</h3>
+                        <ul id="lobbyListaRanking" class="ranking-lista"></ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="areaJogo" style="display:none" aria-labelledby="statusPartida">
+            <div class="layout-grid">
+
+                <div class="col-desenho">
+                    <div class="header-status">
+                        <h2 id="statusPartida" tabindex="-1" aria-live="polite">Aguardando...</h2>
+                    </div>
+
+                    <div id="cardVoce" class="card-voce" style="display:none" aria-live="polite">
+                        <span class="card-voce-label">VOCÊ</span>
+                        <span id="cardVoceNome" class="card-voce-nome"></span>
+                        <span id="cardVoceStatus" class="card-voce-status"></span>
+                    </div>
+
+                    <div class="canvas-container" role="img" aria-label="Área de desenho do jogo" aria-describedby="descricaoDesenho">
+                        <canvas id="quadroDesenho" width="800" height="500"></canvas>
+                        <div id="canvasOverlay" class="canvas-overlay" style="display:none">Aguardando desenho...</div>
+                        <div id="descricaoDesenho" class="sr-only"></div>
+                    </div>
+
+                    <div id="areaEscolhaDesenho" class="controles-desenhista" style="display:none" role="region" aria-labelledby="tituloControles">
+                        <span id="tituloControles" class="sr-only">Controles do desenhista</span>
+                        <div id="escolhaModo" class="modo-container" style="display:none">
+                            <button id="btnModoManual" class="btn-sucesso" aria-label="Desenho manual">✏️ Manual</button>
+                            <button id="btnModoAuto" class="btn-acao" aria-label="Desenho automático">🤖 Automático</button>
+                        </div>
+
+                        <div id="controlesDesenho" class="controles-container" style="display:none">
+                            <button id="btnProximaDica" class="btn-alerta" aria-label="Próxima dica">🗣️ Dica</button>
+                            <button id="btnLimparQuadro" class="btn-perigo" aria-label="Limpar quadro">🗑️ Limpar</button>
+                        </div>
+                    </div>
+
+                    <div id="areaEscolhaPalavra" class="palavra-escolha-container" style="display:none" role="region" aria-labelledby="tituloEscolhaPalavra">
+                        <span id="tituloEscolhaPalavra" class="sr-only">Escolha uma palavra para desenhar</span>
+                        <p class="escolha-label">Escolha a palavra para desenhar:</p>
+                        <div id="opcoesPalavra" class="opcoes-palavra-grid"></div>
+                    </div>
+
+                    <div id="areaFimRodada" class="fim-rodada-container" style="display:none" role="region" aria-labelledby="tituloFimRodada">
+                        <span id="tituloFimRodada" class="sr-only">Resultado da rodada</span>
+                        <div class="fim-rodada-conteudo"></div>
+                    </div>
+
+                    <div class="dica-box" role="status" aria-live="polite" aria-label="Dica atual">
+                        <strong>DICA:</strong> <span id="textoDica">Aguardando início...</span>
+                    </div>
+
+                    <div class="botoes-base">
+                        <button id="btnConfig" class="btn-acao btn-config" aria-label="Abrir configurações" title="Configurações">⚙️</button>
+                        <button id="btnSair" class="btn-perigo" aria-label="Sair da sala e recarregar">Sair</button>
+                    </div>
+                    <div id="painelConfig" class="painel-config" style="display:none" role="region" aria-labelledby="tituloConfig">
+                        <span id="tituloConfig" class="sr-only">Configuracoes</span>
+                        <button id="btnAlternarTema" class="badge badge-tema" aria-label="Alternar tema escuro" title="Alternar tema">🌙</button>
+                    </div>
+                </div>
+
+                <div class="col-social">
+                    <div class="ranking-box" role="region" aria-labelledby="tituloRanking">
+                        <h3 id="tituloRanking">Pontuação da Partida</h3>
+                        <ul id="listaRanking"></ul>
+                    </div>
+                    <div class="ranking-box ranking-geral-box" role="region" aria-labelledby="tituloRankingGeral" style="display:none">
+                        <h3 id="tituloRankingGeral">Ranking Geral</h3>
+                        <ul id="listaRankingGeral" class="ranking-lista"></ul>
+                    </div>
+                    <div class="fila-box" role="region" aria-labelledby="tituloFila" style="display:none">
+                        <h3 id="tituloFila">Próximos Desenhistas</h3>
+                        <ol id="listaFila" class="fila-lista"></ol>
+                    </div>
+
+                    <div class="chat-box" role="region" aria-labelledby="tituloChat">
+                        <h3 id="tituloChat">Palpites</h3>
+                        <div id="janelaChat" role="log" aria-live="polite" aria-label="Mensagens do chat"></div>
+                        <div class="chat-input" id="containerChute">
+                            <label for="chutePalavra" class="sr-only">Digite seu palpite</label>
+                            <input type="text" id="chutePalavra" placeholder="Qual é o desenho?" autocomplete="off" aria-label="Seu palpite">
+                            <button id="btnEnviarChute" class="btn-acao" aria-label="Enviar palpite">Chutar</button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+    </main>
+
+    <script>
+    if ("serviceWorker" in navigator) {
+        window.addEventListener("load", () => {
+            navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(function (reg) {
+                if (reg.active && !navigator.serviceWorker.controller) {
+                    /* P22: First install — nothing to do */
+                }
+                reg.onupdatefound = function () {
+                    var installing = reg.installing;
+                    if (!installing) return;
+                    installing.onstatechange = function () {
+                        if (installing.state === "installed" && navigator.serviceWorker.controller) {
+                            console.log("GARME-SW", "Nova versao instalada. A pagina sera recarregada.");
+                        }
+                    };
+                };
+            }).catch(function () {});
+            /* P22: Safe reload — if game active, show banner instead of interrupting */
+            navigator.serviceWorker.addEventListener("controllerchange", function () {
+                if (window.gameCache01 && window.gameCache01.status && window.gameCache01.status !== "aguardando") {
+                    if (document.getElementById("bannerSWUpdate")) return;
+                    var b = document.createElement("div");
+                    b.id = "bannerSWUpdate";
+                    b.style.cssText = "position:fixed;bottom:0;left:0;right:0;z-index:9999;padding:10px 16px;background:#1e293b;color:#fff;text-align:center;font-size:.85rem;display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap";
+                    b.setAttribute("role", "alert");
+                    b.innerHTML = "<span>Nova vers\u00e3o dispon\u00edvel.</span><button id=\"btnSWUpdate\" style=\"padding:6px 20px;background:#3b82f6;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:700\">Atualizar agora</button>";
+                    b.querySelector("#btnSWUpdate").onclick = function () { window.location.reload(); };
+                    document.body.appendChild(b);
+                } else {
+                    window.location.reload();
+                }
+            });
+        });
+        /* P22: Check for SW updates when tab returns to foreground */
+        document.addEventListener("visibilitychange", function () {
+            if (document.visibilityState === "visible") {
+                navigator.serviceWorker.getRegistration().then(function (reg) {
+                    if (reg) reg.update().catch(function () {});
+                });
+            }
+        });
+    }
+    </script>
+    <script src="js/config.js"></script>
+    <script src="js/participantes.js"></script>
+    <script src="js/voz.js"></script>
+    <script src="js/palavras.js"></script>
+    <script src="js/palavras-extras.js"></script>
+    <script src="js/desenho.js"></script>
+    <script src="js/jogo.js"></script>
 </body>
 </html>

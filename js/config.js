@@ -1,314 +1,178 @@
-// ================================
-// CONFIG FIREBASE GARME ACESSIVEL
-// ================================
-
-var firebaseConfig = {
-apiKey: "AIzaSyBxav0baX6bucdYUlw1pRWOFcv9AwtqymY",
-authDomain: "garme-acessivel.firebaseapp.com",
-databaseURL: "https://garme-acessivel-default-rtdb.firebaseio.com/",
-projectId: "garme-acessivel",
-storageBucket: "garme-acessivel.firebasestorage.app",
-messagingSenderId: "69205141908",
-appId: "1:69205141908:web:d3ce0b770f699c1a8ac781"
+"use strict";
+window.__cfgLog = function (e, m, d) {
+    var t = new Date().toLocaleTimeString();
+    console.log("%c[" + t + "][CFG/" + e + "]", "color:#00bcd4;font-weight:bold", m, d || "");
 };
 
-// ================================
-// INICIALIZAÇÃO FIREBASE
-// ================================
+(function () {
+    try {
+        if (!localStorage.getItem("userId")) {
+            localStorage.setItem("userId", "U_" + Math.random().toString(36).substr(2, 6).toUpperCase());
+        }
+        window.userId = localStorage.getItem("userId");
+        if (!sessionStorage.getItem("sessionId")) {
+            sessionStorage.setItem("sessionId", "S_" + Math.random().toString(36).substr(2, 6).toUpperCase());
+        }
+        window.sessionId = sessionStorage.getItem("sessionId");
+        window.usuarioIdUnico = window.userId;
+    } catch (e) {
+        window.userId = window.userId || "U_" + Math.random().toString(36).substr(2, 6).toUpperCase();
+        window.usuarioIdUnico = window.userId;
+    }
+    if (!window.usuarioIdUnico || window.usuarioIdUnico.indexOf("undefined") !== -1) {
+        window.usuarioIdUnico = "U_" + Math.random().toString(36).substr(2, 8).toUpperCase();
+        console.error("[CFG] ID gerado como fallback");
+    }
+})();
 
-if (!firebase.apps.length) {
-firebase.initializeApp(firebaseConfig);
+var firebaseConfig = {
+    apiKey: "AIzaSyBxav0baX6bucdyUlwipRWOFCv9AWtquyM",
+    authDomain: "garme-acessivel.firebaseapp.com",
+    databaseURL: "https://garme-acessivel-default-rtdb.firebaseio.com/",
+    projectId: "garme-acessivel",
+    storageBucket: "garme-acessivel.appspot.com",
+    messagingSenderId: "69205141908",
+    appId: "1:69205141908:web:d3ce0b770f699c1a8ac781"
+};
+
+if (typeof firebase === "undefined") {
+    console.error("[CFG] Firebase SDK ausente");
+} else {
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    window.db = firebase.database();
+    window.__cfgLog("INIT", "Firebase OK");
 }
 
-window.db = firebase.database();
+if (!window.salaCodigo01) window.salaCodigo01 = "sala_publica";
 
-// ================================
-// CAMINHOS DO BANCO
-// ================================
+/* P8: Maximum players per room */
+window.MAX_JOGADORES = 15;
 
-const firebaseRoot01 = "garmeAcessivel01";
+/* P3: Reset stale session data on fresh load (preserve userId and nome) */
+window.resetSessaoUsuario = function () {
+    try {
+        var keepKeys = ["userId", "garme_tema"];
+        var keysToRemove = [];
+        for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            if (key && keepKeys.indexOf(key) === -1) keysToRemove.push(key);
+        }
+        keysToRemove.forEach(function (k) { localStorage.removeItem(k); });
+        sessionStorage.clear();
+    } catch (e) {}
+    window.__lastGameHash = "";
+    window.gameCache01 = null;
+    window.__desenhoAutoIniciado = false;
+    window.__ultimaEtapaAuto = -1;
+};
+window.resetSessaoUsuario();
 
-const firebaseUsuarios01 = firebaseRoot01 + "/usuarios01";
-const firebaseChat01 = firebaseRoot01 + "/chat01";
-const firebaseDesenho01 = firebaseRoot01 + "/desenho01";
-const firebaseEstado01 = firebaseRoot01 + "/estado01";
-const firebaseRanking01 = firebaseRoot01 + "/ranking01";
-const firebaseTimer01 = firebaseRoot01 + "/timer01";
-const firebaseRodada01 = firebaseRoot01 + "/rodada01";
-const firebaseReset01 = firebaseRoot01 + "/reset01";
-const firebaseControle01 = firebaseRoot01 + "/controle01";
-
-// ================================
-// RESET FIREBASE COMPLETO
-// ================================
-
-function limparFirebaseCompleto01() {
-return window.db.ref(firebaseRoot01).remove();
+window.offsetServidor = 0;
+if (window.db) {
+    window.db.ref(".info/serverTimeOffset").on("value", function (s) {
+        window.offsetServidor = s.val() || 0;
+    });
 }
 
-// ================================
-// RESET ESTADO
-// ================================
+window.agora = function () { return Date.now() + window.offsetServidor; };
 
-function resetarEstadoFirebase01() {
-
-window.db.ref(firebaseEstado01).set({
-status: "aguardando",
-desenhista: "",
-palavra: "",
-rodada: 0,
-emPartida: false
+window.__abaVisivel = document.visibilityState !== "hidden";
+document.addEventListener("visibilitychange", function () {
+    var ativo = document.visibilityState !== "hidden";
+    window.__abaVisivel = ativo;
+    if (ativo) {
+        if (window.__reconectarFila) { window.__reconectarFila(); window.__reconectarFila = null; }
+        if (typeof window.__refreshGameState === "function") window.__refreshGameState();
+    }
 });
 
-}
-
-// ================================
-// RESET CHAT
-// ================================
-
-function resetarChatFirebase01() {
-window.db.ref(firebaseChat01).remove();
-}
-
-// ================================
-// RESET DESENHO
-// ================================
-
-function resetarDesenhoFirebase01() {
-window.db.ref(firebaseDesenho01).remove();
-}
-
-// ================================
-// RESET RANKING
-// ================================
-
-function resetarRankingFirebase01() {
-window.db.ref(firebaseRanking01).remove();
-}
-
-// ================================
-// RESET TIMER
-// ================================
-
-function resetarTimerFirebase01() {
-
-window.db.ref(firebaseTimer01).set({
-tempo: 120,
-ativo: false
+/* P5: Reconnection trigger on .info/connected */
+window.db.ref(".info/connected").on("value", function (snap) {
+    if (snap.val() !== true) {
+        window.__cfgLog("CONN", "Offline detectado");
+        if (typeof window.narrarConexao === "function") window.narrarConexao(false);
+        return;
+    }
+    window.__cfgLog("CONN", "Online");
+    if (typeof window.narrarConexao === "function") window.narrarConexao(true);
+    /* P10: Attempt reconnection on return — inner guards handle restrictions */
+    if (typeof window.reentrarFilaAposReconexao === "function") {
+        window.__reconectarFila = window.reentrarFilaAposReconexao;
+    }
+    /* P1+P2: Clean orphaned presenca entries (old userId_sessionId format) — backward compat */
+    window.db.ref("salas/" + window.salaCodigo01 + "/presenca").once("value").then(function (snap) {
+        var data = snap.val() || {};
+        var toRemove = [];
+        Object.keys(data).forEach(function (key) {
+            if (key.indexOf("_") === -1) return;
+            var entry = data[key];
+            if (entry && entry.userId && entry.userId === key.split("_")[0]) {
+                toRemove.push(key);
+            }
+        });
+        if (toRemove.length > 0) {
+            var updates = {};
+            toRemove.forEach(function (k) { updates[k] = null; });
+            window.db.ref("salas/" + window.salaCodigo01 + "/presenca").update(updates).catch(function () {});
+            window.__cfgLog("PRESENCA", "Limpou " + toRemove.length + " presencas orfas");
+        }
+    }).catch(function () {});
+    /* P2: Dedup jogadores — merge old userId_sessionId entries into userId */
+    window.db.ref("salas/" + window.salaCodigo01 + "/game/jogadores").once("value").then(function (snap) {
+        var jogadores = snap.val() || {};
+        var deduped = {}, merged = {};
+        Object.keys(jogadores).forEach(function (key) {
+            var uid = key.indexOf("_") !== -1 ? key.split("_")[0] : key;
+            if (!deduped[uid]) { deduped[uid] = true; merged[uid] = jogadores[key]; }
+        });
+        if (Object.keys(merged).length < Object.keys(jogadores).length) {
+            window.db.ref("salas/" + window.salaCodigo01 + "/game/jogadores").set(merged).catch(function () {});
+            window.__cfgLog("JOGADORES", "Dedup: " + Object.keys(merged).length + " de " + Object.keys(jogadores).length);
+        }
+    }).catch(function () {});
 });
 
-}
+/* getJogadoresAtivos — usado pelo watchdog, alimentado pelo LobbyManager */
+window.getJogadoresAtivos = function () {
+    return Array.isArray(window.__participantesOnline) ? window.__participantesOnline.slice() : [];
+};
 
-// ================================
-// RESET RODADA
-// ================================
+window.__cleanupPresenca = function () {
+    if (window.db && window.salaCodigo01) {
+        /* P3: If drawer leaves, end the round immediately */
+        try {
+            if (window.gameCache01 && window.gameCache01.desenhistaId === window.usuarioIdUnico) {
+                var s = window.gameCache01.status;
+                if (s === "JOGANDO" || s === "ESCOLHENDO_PALAVRA" || s === "ESCOLHENDO_MODO") {
+                    window.db.ref("salas/" + window.salaCodigo01 + "/game").transaction(function (g) {
+                        if (!g) return;
+                        if (g.desenhistaId !== window.usuarioIdUnico) return;
+                        var n = Object.assign({}, g);
+                        n.status = "FIM_RODADA";
+                        return n;
+                    }).catch(function () {});
+                }
+            }
+        } catch (e) {}
+    }
+    if (window.db && window.salaCodigo01) {
+        try {
+            window.db.ref("salas/" + window.salaCodigo01 + "/fila").transaction(function (f) {
+                if (!Array.isArray(f)) return f;
+                return f.filter(function (id) { return id !== window.usuarioIdUnico; });
+            });
+        } catch (e) {}
+    }
+};
 
-function resetarRodadaFirebase01() {
+window.addEventListener("beforeunload", window.__cleanupPresenca);
+window.addEventListener("pagehide", window.__cleanupPresenca);
 
-window.db.ref(firebaseRodada01).set({
-numero: 0
+/* P5: Global error handler for uncaught exceptions */
+window.addEventListener("error", function (e) {
+    window.__cfgLog("GLOBAL_ERRO", e.message || "Erro nao tratado", { filename: e.filename, lineno: e.lineno });
+    if (typeof window.__showRecovery === "function") window.__showRecovery();
+    return false;
 });
 
-}
-
-// ================================
-// RESET CONTROLE
-// ================================
-
-function resetarControleFirebase01() {
-
-window.db.ref(firebaseControle01).set({
-ativo: false
-});
-
-}
-
-// ================================
-// RESET COMPLETO
-// ================================
-
-function resetarFirebaseCompleto01() {
-
-resetarEstadoFirebase01();
-resetarChatFirebase01();
-resetarDesenhoFirebase01();
-resetarRankingFirebase01();
-resetarTimerFirebase01();
-resetarRodadaFirebase01();
-resetarControleFirebase01();
-
-}
-
-// ================================
-// USUARIOS
-// ================================
-
-function registrarUsuarioFirebase01(id, nome) {
-
-window.db.ref(firebaseUsuarios01 + "/" + id).set({
-nome: nome,
-pontuacao: 0,
-online: true
-});
-
-}
-
-function removerUsuarioFirebase01(id) {
-
-window.db.ref(firebaseUsuarios01 + "/" + id).remove();
-
-}
-
-function atualizarPontuacaoFirebase01(id, pontos) {
-
-window.db.ref(firebaseUsuarios01 + "/" + id + "/pontuacao").set(pontos);
-
-}
-
-// ================================
-// CHAT
-// ================================
-
-function enviarMensagemChatFirebase01(nome, mensagem) {
-
-window.db.ref(firebaseChat01).push({
-nome: nome,
-mensagem: mensagem,
-timestamp: Date.now()
-});
-
-}
-
-// ================================
-// DESENHO
-// ================================
-
-function enviarDesenhoFirebase01(dados) {
-
-window.db.ref(firebaseDesenho01).push(dados);
-
-}
-
-function limparDesenhoFirebase01() {
-
-window.db.ref(firebaseDesenho01).remove();
-
-}
-
-// ================================
-// ESTADO JOGO
-// ================================
-
-function definirDesenhistaFirebase01(nome) {
-
-window.db.ref(firebaseEstado01 + "/desenhista").set(nome);
-
-}
-
-function definirPalavraFirebase01(palavra) {
-
-window.db.ref(firebaseEstado01 + "/palavra").set(palavra);
-
-}
-
-// ================================
-// TIMER
-// ================================
-
-function iniciarTimerFirebase01() {
-
-window.db.ref(firebaseTimer01).set({
-tempo: 120,
-ativo: true
-});
-
-}
-
-function pararTimerFirebase01() {
-
-window.db.ref(firebaseTimer01).update({
-ativo: false
-});
-
-}
-
-function atualizarTempoFirebase01(tempo) {
-
-window.db.ref(firebaseTimer01).update({
-tempo: tempo
-});
-
-}
-
-// ================================
-// RODADA
-// ================================
-
-function proximaRodadaFirebase01(numero) {
-
-window.db.ref(firebaseRodada01).set({
-numero: numero
-});
-
-}
-
-// ================================
-// RESET GLOBAL
-// ================================
-
-function ativarResetFirebase01() {
-
-window.db.ref(firebaseReset01).set({
-executar: true,
-timestamp: Date.now()
-});
-
-}
-
-function escutarResetFirebase01(callback) {
-
-window.db.ref(firebaseReset01).on("value", function(snapshot){
-
-var data = snapshot.val();
-
-if(data && data.executar){
-
-callback();
-
-}
-
-});
-
-}
-
-// ================================
-// SAIDA USUARIO
-// ================================
-
-window.addEventListener("beforeunload", function(){
-
-if(window.usuarioId01){
-
-removerUsuarioFirebase01(window.usuarioId01);
-
-}
-
-});
-
-// ================================
-// STATUS CONEXÃO
-// ================================
-
-window.db.ref(".info/connected").on("value", function(snapshot){
-
-if(snapshot.val() === true){
-
-console.log("Firebase conectado");
-
-}else{
-
-console.log("Firebase desconectado");
-
-}
-
-});
+window.__cfgLog("BOOT", "Config carregado");

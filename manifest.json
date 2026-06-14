@@ -1,0 +1,16 @@
+{
+  "name": "Garme Acessível",
+  "short_name": "Garme",
+  "description": "Jogo multiplayer de desenho e adivinhação acessível para todos",
+  "start_url": "/garme-acessivel/",
+  "scope": "/garme-acessivel/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "categories": ["games", "accessibility", "education"],
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
