@@ -1,4 +1,13 @@
 "use strict";
+window.addEventListener("error", function(e){
+    console.error("[FULL_ERROR]", {
+        message: e.message,
+        filename: e.filename,
+        lineno: e.lineno,
+        colno: e.colno,
+        error: e.error
+    });
+});
 window.__cfgLog = function (e, m, d) {
     var t = new Date().toLocaleTimeString();
     console.log("%c[" + t + "][CFG/" + e + "]", "color:#00bcd4;font-weight:bold", m, d || "");
@@ -6,18 +15,26 @@ window.__cfgLog = function (e, m, d) {
 
 (function () {
     try {
-        if (!localStorage.getItem("userId")) {
-            localStorage.setItem("userId", "U_" + Math.random().toString(36).substr(2, 6).toUpperCase());
+        var uid = localStorage.getItem("userId");
+        if (!uid) {
+            uid = "U_" + Math.random().toString(36).substr(2, 6).toUpperCase();
+            localStorage.setItem("userId", uid);
         }
-        window.userId = localStorage.getItem("userId");
-        if (!sessionStorage.getItem("sessionId")) {
-            sessionStorage.setItem("sessionId", "S_" + Math.random().toString(36).substr(2, 6).toUpperCase());
-        }
-        window.sessionId = sessionStorage.getItem("sessionId");
-        window.usuarioIdUnico = window.userId;
+        window.userId = uid;
+        window.usuarioIdUnico = uid;
     } catch (e) {
         window.userId = window.userId || "U_" + Math.random().toString(36).substr(2, 6).toUpperCase();
         window.usuarioIdUnico = window.userId;
+    }
+    try {
+        var sid = sessionStorage.getItem("sessionId");
+        if (!sid) {
+            sid = "S_" + Math.random().toString(36).substr(2, 6).toUpperCase();
+            sessionStorage.setItem("sessionId", sid);
+        }
+        window.sessionId = sid;
+    } catch (e) {
+        window.sessionId = "S_" + Math.random().toString(36).substr(2, 6).toUpperCase();
     }
     if (!window.usuarioIdUnico || window.usuarioIdUnico.indexOf("undefined") !== -1) {
         window.usuarioIdUnico = "U_" + Math.random().toString(36).substr(2, 8).toUpperCase();
@@ -51,14 +68,18 @@ window.MAX_JOGADORES = 15;
 /* P3: Reset stale session data on fresh load (preserve userId and nome) */
 window.resetSessaoUsuario = function () {
     try {
-        var keepKeys = ["userId", "garme_tema"];
+        var keepKeys = ["userId", "garme_tema", "sessionId"];
         var keysToRemove = [];
         for (var i = 0; i < localStorage.length; i++) {
             var key = localStorage.key(i);
             if (key && keepKeys.indexOf(key) === -1) keysToRemove.push(key);
         }
         keysToRemove.forEach(function (k) { localStorage.removeItem(k); });
-        sessionStorage.clear();
+        try {
+            var sidKeep = sessionStorage.getItem("sessionId");
+            sessionStorage.clear();
+            if (sidKeep) sessionStorage.setItem("sessionId", sidKeep);
+        } catch (e) {}
     } catch (e) {}
     window.__lastGameHash = "";
     window.gameCache01 = null;
@@ -80,9 +101,15 @@ window.__abaVisivel = document.visibilityState !== "hidden";
 document.addEventListener("visibilitychange", function () {
     var ativo = document.visibilityState !== "hidden";
     window.__abaVisivel = ativo;
+    console.log("[VISIBILITY_DEBUG]", {
+        state: document.visibilityState,
+        event: "visibilitychange",
+        timestamp: new Date().getTime()
+    });
     if (ativo) {
         if (window.__reconectarFila) { window.__reconectarFila(); window.__reconectarFila = null; }
         if (typeof window.__refreshGameState === "function") window.__refreshGameState();
+        /* goOffline/goOnline removido — Firebase gerencia conexão sozinho */
     }
 });
 

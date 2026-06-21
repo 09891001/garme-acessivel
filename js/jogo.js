@@ -82,38 +82,8 @@ function log(e, m, d) {
     if (d !== undefined) console.dir(d);
 }
 
-/* P23: Button audit — called after each renderLobby to capture final DOM state */
-window.__auditBtnIniciar = function (origem) {
-    var btn = document.getElementById("btnIniciar");
-    var ts = new Date().toLocaleTimeString();
-    if (!btn) {
-        console.log("[BTN_AUDIT] [" + ts + "] [" + origem + "]",
-            "exists=false",
-            "MOTIVO=BOTAO_NAO_ENCONTRADO_NO_DOM"
-        );
-        return;
-    }
-    var container = btn.parentNode;
-    var containerId = container ? (container.id || container.className || container.tagName) : "NO_PARENT";
-    var estilo = window.getComputedStyle(btn);
-    console.log("[BTN_AUDIT] [" + ts + "] [" + origem + "]",
-        "exists=true",
-        "id=" + btn.id,
-        "display=" + btn.style.display,
-        "computedDisplay=" + estilo.display,
-        "visibility=" + estilo.visibility,
-        "hidden=" + btn.hidden,
-        "disabled=" + btn.disabled,
-        "opacity=" + estilo.opacity,
-        "pointerEvents=" + estilo.pointerEvents,
-        "parentTag=" + (container ? container.tagName : "null"),
-        "parentId=" + containerId,
-        "parentDisplay=" + (container && container.style ? container.style.display : "N/A"),
-        "siblingCount=" + (container ? container.children.length : 0),
-        "innerHTMLLen=" + (container ? container.innerHTML.length : 0),
-        "positionInParent=" + Array.prototype.indexOf.call(container ? container.children : [], btn)
-    );
-};
+/* Button audit — stub (removed diagnostic) */
+window.__auditBtnIniciar = function () {};
 
 function salvarSessao(game) {
     if (!game) return;
@@ -347,6 +317,9 @@ function entrarJogoContinuar(nome, _tentativa) {
         var na = document.getElementById("nomeAtual");
         if (nc) nc.style.display = "block";
         if (na) na.textContent = nome;
+        if (typeof window.LobbyManager !== "undefined" && typeof window.LobbyManager.forcarRender === "function") {
+            window.LobbyManager.forcarRender();
+        }
         if (typeof window.narrarBemVindo === "function") window.narrarBemVindo(nome);
         setTimeout(function () { var el = document.getElementById("tituloSala"); if (el) el.focus(); }, 300);
     }).catch(function (e) {
@@ -514,6 +487,7 @@ function reentrarJogo() {
 
 /* --- LOBBY RENDER --- */
 function renderLobby(game) {
+    console.log("[LOBBY_GAME_CALL]", { gameStatus: game && game.status, participantesOnline: window.__participantesOnline });
     if (!game) return;
     var lista = document.getElementById("listaJogadores");
     var btnIniciar = document.getElementById("btnIniciar");
@@ -561,122 +535,86 @@ function renderLobby(game) {
 
 /* --- INICIAR PARTIDA (admin only) --- */
 function iniciarPartida() {
-    console.log("[BTN_CLICK]", { timestamp: Date.now(), usuario: window.usuarioIdUnico });
-    console.log("[START_ENTER]", { usuario: window.usuarioIdUnico, admin: true, timestamp: Date.now() });
+    if (!window.db || !window.salaCodigo01) return;
+    console.log("[START_CLICK] ID:", window.usuarioIdUnico);
     __disableTemporario("btnIniciar", 2000);
 
-    /* Read participantes/ and game/ in parallel to guarantee consistency */
-    var base = "salas/" + window.salaCodigo01;
-    Promise.all([
-        window.db.ref(base + "/participantes").once("value"),
-        window.db.ref(PATH.game()).once("value")
-    ]).then(function (snaps) {
-        var participantes = snaps[0].val() || {};
-        var game = snaps[1].val() || {};
+    var partRef = window.db.ref("salas/" + window.salaCodigo01 + "/participantes");
 
-        /* Online user IDs from participantes/ */
-        var onlineIds = Object.keys(participantes).filter(function (k) {
-            return participantes[k] && participantes[k].online === true;
-        }).sort();
+    partRef.once("value").then(function (snap) {
+        var parts = snap.val() || {};
 
-        /* Player IDs from game/jogadores */
-        var gameJogadores = game.jogadores || {};
-        var gameIds = Object.keys(gameJogadores).sort();
-
-        /* Compare the two lists */
-        var missing = onlineIds.filter(function (id) { return gameIds.indexOf(id) === -1; });
-
-        console.log("[CONSISTENCIA_CHECK]", {
-            participantes: onlineIds.length,
-            gameJogadores: gameIds.length,
-            usuariosParticipantes: onlineIds,
-            usuariosGame: gameIds
+        /* 1. Filtrar apenas online e com nome */
+        var onlineIds = Object.keys(parts).filter(function (k) {
+            return parts[k] && parts[k].online === true && parts[k].nome;
         });
 
-        console.log("[START_GAME]", {
-            admin: window.usuarioIdUnico,
-            participantes: onlineIds.length,
-            gameJogadores: gameIds.length,
-            status: game.status || "null",
-            divergencia: missing.length > 0
-        });
-
-        /* Validate minimum participants */
+        /* 2. Trava de quantidade real */
         if (onlineIds.length < 2) {
             narrarPrioritario("Mínimo de 2 jogadores para iniciar.");
-            console.log("[START_ABORT]", { motivo: "PARTICIPANTES_INSUFICIENTES", count: onlineIds.length });
+            console.warn("[START_ABORT]", { motivo: "INSUFICIENTES", count: onlineIds.length });
             return;
         }
 
-        /* Validate minimum game.jogadores */
-        if (gameIds.length < 2) {
-            narrarPrioritario("Mínimo de 2 jogadores para iniciar.");
-            console.log("[START_ABORT]", { motivo: "GAME_JOGADORES_INSUFICIENTES", count: gameIds.length });
+        /* 3. Admin = menor entrouEm do Firebase (determinístico) */
+        var trueAdmin = onlineIds.sort(function (a, b) {
+            return (parts[a].entrouEm || 0) - (parts[b].entrouEm || 0);
+        })[0];
+
+        /* 4. Trava de admin real */
+        if (trueAdmin !== window.usuarioIdUnico) {
+            console.warn("[START_ABORT]", { motivo: "NAO_E_ADMIN" });
             return;
         }
 
-        /* Validate consistency — participantes and game.jogadores must match */
-        if (missing.length > 0) {
-            narrarPrioritario("Aguardando jogadores se sincronizarem. Tente novamente em alguns segundos.");
-            console.log("[CONSISTENCIA_FALHOU]", {
-                participantes: onlineIds.length,
-                gameJogadores: gameIds.length,
-                usuariosAusentes: missing
-            });
+        /* 5. Construir jogadores iniciais a partir de participantes/ */
+        var jogadoresIniciais = {};
+        onlineIds.forEach(function (uid) {
+            jogadoresIniciais[uid] = { nome: parts[uid].nome };
+        });
+
+        /* 6. Embaralhar fila */
+        var fila = onlineIds.slice();
+        for (var i = fila.length - 1; i > 0; i--) {
+            var j = Math.floor(Math.random() * (i + 1));
+            var tmp = fila[i]; fila[i] = fila[j]; fila[j] = tmp;
+        }
+
+        /* 7. Selecionar palavras */
+        var opcoes = obterPalavrasComTracos(3);
+        if (opcoes.length < 3) {
+            console.warn("[START_ABORT]", { motivo: "PALAVRAS_INSUFICIENTES", count: opcoes.length });
             return;
         }
 
-        /* All validations passed — proceed with transaction */
-        console.log("[START_TRANSACTION_BEGIN]");
-        var gameRef = window.db.ref(PATH.game());
-        gameRef.transaction(function (g) {
-            console.log("[START_TRANSACTION_EXEC]", { statusAtual: g && g.status, jogadores: Object.keys(g && g.jogadores || {}) });
-            if (!g || !g.jogadores) { console.log("[START_RETURN]", { motivo: "GAME_NULL_OU_SEM_JOGADORES" }); return g; }
-            var jogos = g.jogadores;
-            var ids = Object.keys(jogos);
-            if (ids.length < 2) { console.log("[START_RETURN]", { motivo: "TRANSACAO_JOGADORES_INSUFICIENTES", count: ids.length }); return g; }
-            if (g.adminId !== window.usuarioIdUnico) { console.log("[START_RETURN]", { motivo: "NAO_E_ADMIN_NA_TRANSACTION" }); return g; }
-            if (g.status !== "aguardando") { console.log("[START_RETURN]", { motivo: "STATUS_NAO_AGUARDANDO_NA_TRANSACTION", status: g.status }); return g; }
-
-            var fila = ids.slice();
-            for (var i = fila.length - 1; i > 0; i--) {
-                var j = Math.floor(Math.random() * (i + 1));
-                var tmp = fila[i]; fila[i] = fila[j]; fila[j] = tmp;
-            }
-
-            var opcoes = obterPalavrasComTracos(3);
-            if (opcoes.length < 3) { console.log("[START_RETURN]", { motivo: "PALAVRAS_INSUFICIENTES", count: opcoes.length }); return g; }
-
-            var novo = Object.assign({}, g);
-            novo.status = "ESCOLHENDO_PALAVRA";
-            novo.filaOrdem = fila;
-            novo.filaIndex = 0;
-            novo.desenhistaId = fila[0];
-            novo.desenhistaNome = __resolverNome(fila[0], jogos) || (jogos[fila[0]] && jogos[fila[0]].nome) || "Jogador";
-            novo.palavraOpcoes = {};
-            opcoes.forEach(function (p, idx) { novo.palavraOpcoes[idx] = p; });
-            novo.palavra = null;
-            novo.modoDesenho = null;
-            novo.rodada = 1;
-            novo.totalRodadas = fila.length * 2;
-            novo.inicio = null;
-            novo.dicaIndex = 0;
-            novo.dicaAtual = null;
-            novo.acertadores = {};
-            novo.pontosJogo = {};
-            console.log("[START_WRITE]", { status: "ESCOLHENDO_PALAVRA", jogadores: ids.length });
-            return novo;
-        }).then(function (res) {
-            console.log("[START_TRANSACTION_RESULT]", { committed: res && res.committed });
-            console.log("[START_RESULT]", { committed: res.committed });
-            if (res.committed) {
-                var val = res.snapshot.val();
-                console.log("[START_SUCCESS]", { status: val.status, jogadores: Object.keys(val.jogadores || {}).length });
-            }
+        /* 8. Gravação atômica no game/ */
+        var gameRef = window.db.ref("salas/" + window.salaCodigo01 + "/game");
+        console.log("[START_ACTION] Tentando mudar status para ESCOLHENDO_PALAVRA");
+        gameRef.update({
+            status: "ESCOLHENDO_PALAVRA",
+            adminId: trueAdmin,
+            jogadores: jogadoresIniciais,
+            filaOrdem: fila,
+            filaIndex: 0,
+            desenhistaId: fila[0],
+            desenhistaNome: (parts[fila[0]] && parts[fila[0]].nome) || "Jogador",
+            palavraOpcoes: (function () { var m = {}; opcoes.forEach(function (p, idx) { m[idx] = p; }); return m; })(),
+            palavra: null,
+            modoDesenho: null,
+            rodada: 1,
+            totalRodadas: fila.length * 2,
+            inicio: null,
+            dicaIndex: 0,
+            dicaAtual: null,
+            acertadores: {},
+            pontosJogo: {},
+            atualizadoEm: firebase.database.ServerValue.TIMESTAMP
+        }).then(function () {
+            console.log("[START_SUCCESS]", { status: "ESCOLHENDO_PALAVRA", jogadores: onlineIds.length, admin: trueAdmin });
+            /* Forçar re-render imediato no Admin (não espera listener) */
+            window.__lastGameHash = "";
         }).catch(function (e) { log("ERRO", "iniciarPartida", e); });
-    }).catch(function (e) {
-        log("ERRO", "iniciarPartida.consistencia", e);
-    });
+    }).catch(function (e) { log("ERRO", "iniciarPartida.participantes", e); });
 }
 
 /* --- REVANCHE --- */
@@ -684,6 +622,8 @@ function iniciarRevanche() {
     if (window.__iniciandoRevanche) return;
     window.__iniciandoRevanche = true;
     setTimeout(function () { window.__iniciandoRevanche = false; }, 2000);
+    /* Cancel FIM_PARTIDA transition — user chose to play again */
+    window.db.ref(PATH.game() + "/transitionFimPartida").remove().catch(function () {});
 
     /* Read participantes/ and game/ in parallel to guarantee consistency */
     var base = "salas/" + window.salaCodigo01;
@@ -809,7 +749,8 @@ function escolherModo(modo) {
 /* --- LOBBY JOGADORES LISTENER (tempo real) --- */
 /* P1+P3+P4: Sala vazia — reset completo do Firebase com delay de 15s */
 var __timerResetSala = null;
-var RESET_SALA_DELAY_MS = 15000;
+var RESET_SALA_DELAY_MS = 30000;
+var FIM_PARTIDA_TRANSITION_MS = 30000;
 
 function cancelarResetSala() {
     if (__timerResetSala) {
@@ -819,10 +760,59 @@ function cancelarResetSala() {
     }
 }
 
+/* Reset leve: limpa APENAS game/ — preserva participantes, chat, desenho, ranking, historico.
+   Usado para transição FIM_PARTIDA → aguardando sem destruir a sala.
+   Uses .set() instead of .transaction() to avoid conflicts with __syncGameJogadores. */
+var __resetandoPartida = false;
+function resetarEstadoPartida() {
+    if (__resetandoPartida) return;
+    if (!window.db || !window.salaCodigo01) return;
+    var base = "salas/" + window.salaCodigo01;
+
+    /* Guardião: não resetar se jogo está em estado ativo */
+    var _statusAtual = (window.gameCache01 && window.gameCache01.status) || "";
+    if (_statusAtual === "JOGANDO" || _statusAtual === "ESCOLHENDO_PALAVRA" ||
+        _statusAtual === "ESCOLHENDO_MODO" || _statusAtual === "FIM_RODADA") {
+        console.warn("[RESET_LEVE_BLOQUEADO]", { status: _statusAtual });
+        return;
+    }
+
+    __resetandoPartida = true;
+    window.db.ref(base + "/game").once("value").then(function (snap) {
+        var g = snap.val();
+        if (!g || g.status !== "FIM_PARTIDA") {
+            console.log("[RESET_LEVE]", { skip: true, status: g ? g.status : null });
+            __resetandoPartida = false;
+            return;
+        }
+        console.log("[RESET_LEVE]", { status: "FIM_PARTIDA", action: "SET_AGUARDANDO", timestamp: Date.now() });
+        return window.db.ref(base + "/game").set({
+            status: "aguardando",
+            jogadores: g.jogadores || {},
+            adminId: g.adminId || null,
+            rodada: 0
+        });
+    }).then(function () {
+        log("TRANSICAO", "FIM_PARTIDA → aguardando (reset leve .set())");
+        __resetandoPartida = false;
+    }).catch(function (e) {
+        console.error("[RESET_LEVE_ERRO]", e);
+        __resetandoPartida = false;
+    });
+}
+
 function executarResetSala() {
     __timerResetSala = null;
     if (!window.db || !window.salaCodigo01) return;
     var base = "salas/" + window.salaCodigo01;
+
+    /* Guardião: não resetar se jogo está em estado ativo */
+    var _statusAtual = (window.gameCache01 && window.gameCache01.status) || "";
+    if (_statusAtual === "JOGANDO" || _statusAtual === "ESCOLHENDO_PALAVRA" ||
+        _statusAtual === "ESCOLHENDO_MODO" || _statusAtual === "FIM_RODADA") {
+        console.warn("[RESET_SALA_BLOQUEADO]", { status: _statusAtual });
+        return;
+    }
 
     /* Read state before reset for log */
     window.db.ref(base).once("value").then(function (snap) {
@@ -892,7 +882,8 @@ var ESTADO_LOBBY = "LOBBY";
 var ESTADO_GAME = "GAME";
 
 function aplicarEstadoVisao(estado, game) {
-    console.log("[VIEW_APPLY]", { estado: estado });
+    console.log("[VIEW_DEBUG] Tentando trocar para status:", estado);
+    console.log("[VIEW_DEBUG] IDs encontrados:", !!document.getElementById("salaEspera"), !!document.getElementById("areaJogo"));
     var lobby = document.getElementById("salaEspera");
     var gameArea = document.getElementById("areaJogo");
     var telaEntrada = document.getElementById("telaEntrada");
@@ -905,11 +896,9 @@ function aplicarEstadoVisao(estado, game) {
         }
         var _cardV = document.getElementById("cardVoce");
         if (_cardV) _cardV.style.display = "none";
-        /* LobbyManager (participantes.js) renderiza de participantes/ — fallback mantido */
-        if (typeof window.LobbyManager !== "undefined" && window.LobbyManager.render) {
-            /* LobbyManager já escuta participantes/ e renderiza automaticamente */
-        } else {
-            renderLobby(game);
+        /* SEMPRE usar LobbyManager.forcarRender() — lê Firebase direto, não cache */
+        if (typeof window.LobbyManager !== "undefined" && typeof window.LobbyManager.forcarRender === "function") {
+            window.LobbyManager.forcarRender();
         }
         return true;
     }
@@ -933,6 +922,47 @@ function estadoValido(s) {
     return ESTADOS_VALIDOS.indexOf(s) !== -1;
 }
 
+/* PROBLEM C FIX: Revalidate game state after every Firebase update.
+   Checks: desenhista still in game? minimum players still present?
+   If invalid, forces status to "aguardando" via transaction. */
+function validarConsistenciaJogo(game) {
+    if (!game || !game.status || game.status === "aguardando" || game.status === "FIM_PARTIDA") return;
+    var jogadores = game.jogadores || {};
+    var ids = Object.keys(jogadores);
+    /* Minimum 2 players required */
+    if (ids.length < 2) {
+        log("CONSISTENCIA", "Jogadores insuficientes (" + ids.length + "). Forcando aguardando.");
+        window.db.ref(PATH.game()).transaction(function (g) {
+            if (!g || !g.jogadores) return g;
+            if (Object.keys(g.jogadores).length >= 2) return g;
+            var n = Object.assign({}, g);
+            n.status = "aguardando";
+            n.desenhistaId = null;
+            n.desenhistaNome = null;
+            n.palavra = null;
+            n.palavraOpcoes = null;
+            n.modoDesenho = null;
+            n.filaOrdem = null;
+            n.filaIndex = null;
+            return n;
+        }).catch(function () {});
+        return;
+    }
+    /* During active phases, check if desenhista is still in game */
+    var precisaDesenhista = (game.status === "ESCOLHENDO_PALAVRA" || game.status === "ESCOLHENDO_MODO" || game.status === "JOGANDO");
+    if (precisaDesenhista && game.desenhistaId && ids.indexOf(game.desenhistaId) === -1) {
+        log("CONSISTENCIA", "Desenhista " + game.desenhistaId + " nao esta no jogo. Forcando FIM_RODADA.");
+        window.db.ref(PATH.game()).transaction(function (g) {
+            if (!g) return g;
+            if (g.status === "aguardando" || g.status === "FIM_RODADA" || g.status === "FIM_PARTIDA") return g;
+            if (g.desenhistaId && Object.keys(g.jogadores || {}).indexOf(g.desenhistaId) !== -1) return g;
+            var n = Object.assign({}, g);
+            n.status = "FIM_RODADA";
+            return n;
+        }).catch(function () {});
+    }
+}
+
 /* --- GAME STATE LISTENER --- */
 var __listenersSetup = {};
 function escutarEstadoGlobal() {
@@ -942,7 +972,21 @@ function escutarEstadoGlobal() {
         var game = snap.val();
         if (!game || typeof game !== "object") return;
 
-        console.log("[STATE_RECEIVED]", { status: game && game.status });
+        console.log("[DEBUG_TELA] Status detectado:", game.status, "| uid:", window.usuarioIdUnico, "| jogadores:", Object.keys(game.jogadores || {}));
+        console.log("[GAME_STATE] Status recebido do Firebase:", game.status);
+
+        /* FORÇA TROCA DE TELA — bypass de otimizações */
+        var _statusAtivo = game.status && game.status !== "aguardando" && game.status !== "FIM_PARTIDA";
+        var _euNoJogo = game.jogadores && game.jogadores[window.usuarioIdUnico];
+        var _lobby = document.getElementById("salaEspera");
+        var _areaJogo = document.getElementById("areaJogo");
+        if (_statusAtivo && _euNoJogo) {
+            if (_lobby && _lobby.style.display !== "none") _lobby.style.display = "none";
+            if (_areaJogo && _areaJogo.style.display === "none") _areaJogo.style.display = "block";
+        } else {
+            if (_areaJogo && _areaJogo.style.display !== "none") _areaJogo.style.display = "none";
+            if (_lobby && _lobby.style.display === "none") _lobby.style.display = "block";
+        }
 
         /* P4: Validate state — force invalid status to "aguardando" */
         var statusOriginal = game.status;
@@ -969,17 +1013,31 @@ function escutarEstadoGlobal() {
             delete game.modoDesenho;
         }
 
-        var _oldStatus = window.gameCache01 ? window.gameCache01.status : null;
-        var _partOnline = window.__participantesOnline ? window.__participantesOnline.length : 0;
-
-        console.log("[STATE_SYNC]", {
-            status: game.status || "null",
-            participantes: _partOnline,
-            gameJogadores: Object.keys(game.jogadores || {}).length
-        });
-
         gameCache01 = game;
         salvarSessao(game);
+
+        /* FIM_PARTIDA recovery — handle both timestamped and legacy states */
+        if (game.status === "FIM_PARTIDA") {
+            if (game.transitionFimPartida) {
+                /* Timestamp exists — check if transition delay has passed */
+                var elapsed = Date.now() - game.transitionFimPartida;
+                if (elapsed >= FIM_PARTIDA_TRANSITION_MS) {
+                    resetarEstadoPartida();
+                }
+            } else {
+                /* Legacy state — no transitionFimPartida written.
+                   Validate it's safe to reset: no active drawer, no active round. */
+                var _temDesenhista = !!game.desenhistaId;
+                var _temRodada = !!game.rodada && game.rodada > 0;
+                var _temPartidaAtiva = _temDesenhista || _temRodada;
+                if (!_temPartidaAtiva) {
+                    resetarEstadoPartida();
+                }
+            }
+        }
+
+        /* PROBLEM C FIX: Revalidate state consistency after every Firebase update */
+        validarConsistenciaJogo(game);
 
         /* P5: State machine decision — use participantes/ for count */
         var euNoJogo = game.jogadores && game.jogadores[window.usuarioIdUnico];
@@ -1001,21 +1059,21 @@ function escutarEstadoGlobal() {
 
         /* User not in game.jogadores — show lobby */
         if (!euNoJogo || ehAguardandoOuNulo) {
-            console.log("[VIEW_REQUEST]", { estado: ESTADO_LOBBY });
             aplicarEstadoVisao(ESTADO_LOBBY, game);
             return;
         }
 
-        /* P5: Hash check — skip render if nothing changed */
+        /* P5: Hash check — skip render only if absolutely identical */
         var jogadoresIds = Object.keys(game.jogadores || {}).sort().join(",");
         var ptsStr = game.pontosJogo ? Object.keys(game.pontosJogo).sort().map(function (k) { return k + ":" + ((game.pontosJogo[k] && game.pontosJogo[k].pontos) || 0); }).join(",") : "";
         var hash = (game.status || "") + "_" + (game.rodada || 0) + "_" + (game.palavra || "") + "_" + (game.dicaIndex || 0) + "_" + (game.dicaAtual || "") + "_" + Object.keys(game.acertadores || {}).length + "_" + jogadoresIds + "_" + Object.keys(game.jogadores || {}).length + "_" + (game.adminId || "") + "_" + (game.desenhistaId || "") + "_" + (game.modoDesenho || "") + "_" + (game.inicio || "") + "_" + (game.filaIndex || 0) + "_" + ptsStr;
-        if (window.__lastGameHash === hash) {
+        /* Forçar re-render se status mudou (ignora hash para transições) */
+        var _statusMudou = (window.gameCache01 && window.gameCache01.status) !== game.status;
+        if (window.__lastGameHash === hash && !_statusMudou) {
             return;
         }
         window.__lastGameHash = hash;
 
-        console.log("[VIEW_REQUEST]", { estado: ESTADO_GAME });
         aplicarEstadoVisao(ESTADO_GAME, game);
 
         var podeDesenhar = ehDesenhista && (game.status === "JOGANDO");
@@ -1023,58 +1081,89 @@ function escutarEstadoGlobal() {
     });
 }
 
-/* --- SYNC: participantes/ ↔ game/jogadores ---
-   Called by LobbyManager when participantes/ changes.
-   When status = aguardando:
-     - Removes offline users from game/jogadores
-     - Adds missing online users to game/jogadores (uses real names from participantes)
-   Never removes online users. Never uses game.set(). Only transactions.
-   Flow: participantes mudou → read status only → transaction (no redundant read) */
+/* --- REGRA 4: SYNC participantes/ → game/jogadores ---
+   Apenas o Admin atual escreve. Clientes normais NÃO chamam esta função.
+   Admin = menor entrouEm do Firebase (determinístico cross-client). */
 var __syncRunning = false;
-window.__syncGameJogadores = function (participantes, onlineIds) {
+window.__syncGameJogadores = function (participantes, onlineIds, atualAdminId) {
     if (__syncRunning) return;
     if (!window.db || !window.usuarioIdUnico) return;
     if (!participantes || !Array.isArray(onlineIds) || onlineIds.length === 0) return;
+    /* REGRA 4: Apenas admin sincroniza */
+    if (atualAdminId !== window.usuarioIdUnico) return;
 
     __syncRunning = true;
     var gamePath = PATH.game();
 
-    /* PROBLEMA 2: read real status from Firebase, not gameCache01 */
-    window.db.ref(gamePath + "/status").once("value").then(function (snap) {
-        var status = snap.val();
-        if (status && status !== "aguardando") {
-            __syncRunning = false;
-            return;
+    window.db.ref(gamePath).transaction(function (g) {
+        if (!g) return;
+        if (!g.jogadores) g.jogadores = {};
+
+        if (atualAdminId && g.adminId !== atualAdminId) {
+            g.adminId = atualAdminId;
         }
-        /* participantes already passed — no redundant read */
-        return window.db.ref(gamePath).transaction(function (g) {
-            if (!g) return;
-            if (!g.jogadores) g.jogadores = {};
-            if (g.status && g.status !== "aguardando") return;
-            var changed = false;
-            var gameIds = Object.keys(g.jogadores);
-            gameIds.forEach(function (uid) {
-                if (onlineIds.indexOf(uid) === -1) {
+
+        var _status = g.status || "aguardando";
+        var _ehAguardando = (_status === "aguardando");
+        var changed = false;
+
+        var gameIds = Object.keys(g.jogadores);
+
+        /* Remove players not in valid online list */
+        gameIds.forEach(function (uid) {
+            if (onlineIds.indexOf(uid) === -1) {
+                if (_ehAguardando) {
+                    delete g.jogadores[uid];
+                    changed = true;
+                } else if (!g.jogadores[uid].offline) {
+                    g.jogadores[uid].offline = true;
+                    changed = true;
+                }
+            }
+        });
+
+        /* Add missing valid online players */
+        onlineIds.forEach(function (uid) {
+            if (!g.jogadores[uid]) {
+                var p = participantes[uid];
+                var nome = (p && p.nome) ? p.nome : null;
+                if (!nome) return;
+                g.jogadores[uid] = { nome: nome };
+                changed = true;
+            }
+            /* Reconnect: clear offline flag */
+            if (g.jogadores[uid] && g.jogadores[uid].offline) {
+                delete g.jogadores[uid].offline;
+                changed = true;
+            }
+        });
+
+        /* Clean offline players when returning to lobby */
+        if (_ehAguardando) {
+            Object.keys(g.jogadores).forEach(function (uid) {
+                if (g.jogadores[uid] && g.jogadores[uid].offline) {
                     delete g.jogadores[uid];
                     changed = true;
                 }
             });
-            onlineIds.forEach(function (uid) {
-                if (!g.jogadores[uid]) {
-                    var p = participantes[uid];
-                    var nome = (p && p.nome) ? p.nome : null;
-                    if (!nome) return;
-                    g.jogadores[uid] = { nome: nome };
-                    changed = true;
+        }
+
+        /* Clean fila of invalid players */
+        if (Array.isArray(g.filaOrdem) && g.filaOrdem.length > 0) {
+            var _validPlayers = Object.keys(g.jogadores);
+            var _newFila = g.filaOrdem.filter(function (uid) { return _validPlayers.indexOf(uid) !== -1; });
+            if (_newFila.length !== g.filaOrdem.length) {
+                g.filaOrdem = _newFila;
+                if (g.filaIndex >= _newFila.length && _newFila.length > 0) {
+                    g.filaIndex = 0;
                 }
-            });
-            return changed ? g : undefined;
-        });
+                changed = true;
+            }
+        }
+
+        return changed ? g : undefined;
     }).then(function (res) {
         __syncRunning = false;
-        if (res && res.committed) {
-            console.log("[SYNC_GAME]", { committed: true, online: onlineIds.length });
-        }
     }).catch(function () { __syncRunning = false; });
 };
 
@@ -1369,11 +1458,57 @@ function renderFimRodada(game) {
             if (idx >= total) {
                 var novo = Object.assign({}, g);
                 novo.status = "FIM_PARTIDA";
+                novo.transitionFimPartida = Date.now();
+                /* Clean round-specific data — preserve players, scores, admin */
+                novo.desenhistaId = null;
+                novo.desenhistaNome = null;
+                novo.palavra = null;
+                novo.palavraOpcoes = null;
+                novo.modoDesenho = null;
+                novo.inicio = null;
+                novo.filaOrdem = null;
+                novo.filaIndex = null;
+                novo.rodada = null;
+                novo.dicaIndex = null;
+                novo.dicaAtual = null;
+                novo.acertadores = {};
                 return novo;
             }
             var fila = g.filaOrdem || [];
-            var proxId = fila[idx % fila.length];
             var jogos = g.jogadores || {};
+            var jogadoresIds = Object.keys(jogos);
+            /* PROBLEM B FIX: Skip players who left the game when choosing next drawer.
+               Walk the queue until finding a player still in game.jogadores.
+               Max one full loop to prevent infinite cycle. */
+            var proxId = null;
+            for (var _attempt = 0; _attempt < fila.length; _attempt++) {
+                var _candidate = fila[(idx + _attempt) % fila.length];
+                if (jogadoresIds.indexOf(_candidate) !== -1) {
+                    proxId = _candidate;
+                    idx = idx + _attempt;
+                    break;
+                }
+            }
+            if (!proxId) {
+                /* No valid player found — force end of game */
+                var _novoFim = Object.assign({}, g);
+                _novoFim.status = "FIM_PARTIDA";
+                _novoFim.transitionFimPartida = Date.now();
+                /* Clean round-specific data — preserve players, scores, admin */
+                _novoFim.desenhistaId = null;
+                _novoFim.desenhistaNome = null;
+                _novoFim.palavra = null;
+                _novoFim.palavraOpcoes = null;
+                _novoFim.modoDesenho = null;
+                _novoFim.inicio = null;
+                _novoFim.filaOrdem = null;
+                _novoFim.filaIndex = null;
+                _novoFim.rodada = null;
+                _novoFim.dicaIndex = null;
+                _novoFim.dicaAtual = null;
+                _novoFim.acertadores = {};
+                return _novoFim;
+            }
             var opcoes = obterPalavrasComTracos(3);
             if (opcoes.length < 3) opcoes = ["casa", "sol", "arvore"];
             var novo = Object.assign({}, g);
@@ -1394,7 +1529,10 @@ function renderFimRodada(game) {
             return novo;
         }).then(function (res) {
             if (res.committed) {
-            log("TURNO", "Proximo turno", res.snapshot.val());
+            var _val = res.snapshot.val();
+            log("TURNO", "Proximo turno", _val);
+            /* transitionFimPartida is now written atomically inside the transaction.
+               No separate .set() needed — timestamp is guaranteed to exist with FIM_PARTIDA. */
             /* P4+P9: Clear chat + desenho from Firebase for fresh round */
             if (window.db) {
                 window.db.ref(PATH.chat()).remove().catch(function () {});
