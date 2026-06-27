@@ -64,10 +64,17 @@ var DEBUG_SYNC = true;
                 Object.keys(participantes).forEach(function (uid) {
                     if (uid === window.usuarioIdUnico) return;
                     var p = participantes[uid];
-                    if (p && p.nome === nome && p.online === true) {
+                    if (!p) return;
+                    /* Regra 1: outro UID com mesmo nome E online → marca offline */
+                    if (p.nome === nome && p.online === true) {
                         updates[uid + "/online"] = false;
                         updates[uid + "/lastSeen"] = firebase.database.ServerValue.TIMESTAMP;
-                        console.log("[GHOST_CLEANUP]", { ghostUid: uid, nome: nome, motivado: "mesmo_nome_e_online" });
+                        console.log("[GHOST_CLEANUP]", { ghostUid: uid, nome: nome, motivo: "mesmo_nome_e_online" });
+                    }
+                    /* Regra 2: outro UID com mesmo nome mas offline → remove nó */
+                    else if (p.nome === nome && p.online === false) {
+                        updates[uid] = null;
+                        console.log("[GHOST_CLEANUP]", { ghostUid: uid, nome: nome, motivo: "mesmo_nome_offline_remove" });
                     }
                 });
                 if (Object.keys(updates).length > 0) {
@@ -104,6 +111,45 @@ var DEBUG_SYNC = true;
                 lastSeen: firebase.database.ServerValue.TIMESTAMP
             }).catch(function () {});
         }, 10000);
+    }
+
+    /* Periodic ghost cleanup — remove ALL offline entries from participantes/ */
+    if (!window.__ghostCleanupInterval) {
+        window.__ghostCleanupInterval = setInterval(function () {
+            if (!window.__abaVisivel || !window.db) return;
+            var partRef = window.db.ref(base() + "/participantes");
+            partRef.once("value").then(function (snap) {
+                var participantes = snap.val() || {};
+                var updates = {};
+                var now = window.agora ? window.agora() : Date.now();
+                Object.keys(participantes).forEach(function (uid) {
+                    if (uid === window.usuarioIdUnico) return;
+                    var p = participantes[uid];
+                    if (!p) return;
+                    var lastSeen = p.lastSeen || 0;
+                    if (typeof lastSeen !== "number") lastSeen = 0;
+                    /* Remove offline entries (onDisconnect marked them) */
+                    if (p.online === false) {
+                        /* Preserve if lastSeen is very recent (< 5s) — might be reconnecting */
+                        if (lastSeen > 0 && (now - lastSeen) < 5000) return;
+                        updates[uid] = null;
+                    }
+                    /* Remove entries with no name (never completed registration) */
+                    else if (!p.nome) {
+                        updates[uid] = null;
+                    }
+                    /* Remove ghost: online:true but lastSeen > 15s */
+                    else if (p.online === true && lastSeen > 0 && (now - lastSeen) > 15000) {
+                        updates[uid + "/online"] = false;
+                        updates[uid + "/lastSeen"] = firebase.database.ServerValue.TIMESTAMP;
+                    }
+                });
+                if (Object.keys(updates).length > 0) {
+                    if (DEBUG_SYNC) console.log("[GHOST_PERIODIC]", { removing: Object.keys(updates).length, uids: Object.keys(updates) });
+                    partRef.update(updates).catch(function () {});
+                }
+            }).catch(function () {});
+        }, 15000);
     }
 
     /* Cleanup on unload */
@@ -258,6 +304,32 @@ var DEBUG_SYNC = true;
         window.db.ref(base() + "/participantes").on("value", function (snap) {
             var participantes = snap.val() || {};
             console.log("[PARTICIPANTES_FIREBASE]", JSON.parse(JSON.stringify(participantes)));
+
+            /* --- PRE-RENDER GHOST CLEANUP --- */
+            var now = window.agora ? window.agora() : Date.now();
+            var ghostUpdates = {};
+            Object.keys(participantes).forEach(function (uid) {
+                if (uid === window.usuarioIdUnico) return;
+                var p = participantes[uid];
+                if (!p) return;
+                /* Ghost: online:true mas lastSeen > 15s (desconectou sem onDisconnect) */
+                var lastSeen = p.lastSeen || 0;
+                if (typeof lastSeen !== "number") return;
+                if (p.online === true && (now - lastSeen) > 15000) {
+                    ghostUpdates[uid + "/online"] = false;
+                    ghostUpdates[uid + "/lastSeen"] = firebase.database.ServerValue.TIMESTAMP;
+                    console.log("[GHOST_CLEANUP]", { uid: uid, nome: p.nome, lastSeen: lastSeen, ageMs: now - lastSeen });
+                }
+            });
+            if (Object.keys(ghostUpdates).length > 0) {
+                console.log("[GHOST_CLEANUP] Removidos:", Object.keys(ghostUpdates).filter(function (k) { return k.endsWith("/online"); }).length, "fantasmas");
+                window.db.ref(base() + "/participantes").update(ghostUpdates).catch(function () {});
+                /* Atualizar objeto local para consistência imediata */
+                Object.keys(ghostUpdates).forEach(function (k) {
+                    var uid = k.split("/")[0];
+                    if (k.endsWith("/online") && participantes[uid]) participantes[uid].online = false;
+                });
+            }
 
             /* Single source: online=true AND nome exists, sorted by entrouEm */
             var sortedIds = Object.keys(participantes).filter(function (uid) {

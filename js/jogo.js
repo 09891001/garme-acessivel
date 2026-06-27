@@ -415,6 +415,7 @@ function resetEstadoLocal() {
     window.__pendente = false;
     window.__desenhoAutoIniciado = false;
     window.__ultimaEtapaAuto = -1;
+    window.__statusAnteriorJogo = "";
     if (window.__fimRodadaTimer) { clearTimeout(window.__fimRodadaTimer); window.__fimRodadaTimer = null; }
     pararCronometroReal();
     try { sessionStorage.clear(); } catch (e) {}
@@ -1265,6 +1266,12 @@ function renderJogo(game) {
     }
 
     if (status === "JOGANDO") {
+        /* Só recarregar desenho na TRANSIÇÃO para JOGANDO, não a cada re-render */
+        var _statusAnterior = window.__statusAnteriorJogo || "";
+        if (_statusAnterior !== "JOGANDO" && typeof window.recargarDesenho === "function") {
+            window.recargarDesenho();
+        }
+        window.__statusAnteriorJogo = status;
         iniciarCronometroReal();
         var agora = window.agora ? window.agora() : Date.now();
         var inicio = typeof game.inicio === "number" ? game.inicio : agora;
@@ -1364,6 +1371,7 @@ function limparTransicaoRodada() {
     if (window.__fimRodadaTimer) { clearTimeout(window.__fimRodadaTimer); window.__fimRodadaTimer = null; }
     window.__desenhoAutoIniciado = false;
     window.__ultimaEtapaAuto = -1;
+    window.__statusAnteriorJogo = "";
     var inputChute = document.getElementById("chutePalavra");
     if (inputChute) { inputChute.value = ""; }
     document.getElementById("textoDica").textContent = "Aguardando...";
@@ -1526,6 +1534,7 @@ function renderFimRodada(game) {
             novo.acertadores = {};
             if (typeof window.limparQuadroSincronizado === "function") window.limparQuadroSincronizado();
             window.__desenhoAutoIniciado = false;
+            window.__statusAnteriorJogo = "";
             return novo;
         }).then(function (res) {
             if (res.committed) {

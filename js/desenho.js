@@ -13,10 +13,12 @@ function anunciar(m) {
 }
 
 function getPath() {
-    if (!window.db) return null;
-    if (typeof window.pathDesenho !== "function") return null;
+    if (!window.db) { logD("PATH", "window.db é null"); return null; }
+    if (typeof window.pathDesenho !== "function") { logD("PATH", "window.pathDesenho não é função"); return null; }
     var p = window.pathDesenho();
-    return (p && typeof p === "string" && p.indexOf("undefined") === -1) ? p : null;
+    if (!p || typeof p !== "string" || p.indexOf("undefined") !== -1) { logD("PATH", "pathDesenho retornou inválido:", p); return null; }
+    logD("PATH", "Path resolvido:", p);
+    return p;
 }
 
 function logD(e, m, d) {
@@ -51,8 +53,11 @@ function desligarListenersDesenho() {
 }
 
 function renderizarLinha(x1, y1, x2, y2, cor, espessura) {
-    if (!ctx01) return;
-    if (![x1, y1, x2, y2].every(function (n) { return typeof n === "number" && isFinite(n); })) return;
+    if (!ctx01) { logD("RENDER", "ctx01 null"); return; }
+    if (![x1, y1, x2, y2].every(function (n) { return typeof n === "number" && isFinite(n); })) {
+        logD("RENDER", "Coordenadas inválidas:", x1, y1, x2, y2);
+        return;
+    }
     ctx01.beginPath();
     ctx01.strokeStyle = cor || "#000";
     ctx01.lineWidth = espessura || 3;
@@ -83,6 +88,7 @@ function redrawCanvas() {
 function carregarHistoricoInicial() {
     var path = getPath();
     if (!path) {
+        logD("HIST", "path null, tentativa " + (tentativasReconexao01 + 1) + "/" + MAX_TENTATIVAS_01);
         if (tentativasReconexao01 < MAX_TENTATIVAS_01) {
             tentativasReconexao01++;
             setTimeout(carregarHistoricoInicial, Math.min(3000 * tentativasReconexao01, 15000));
@@ -90,18 +96,22 @@ function carregarHistoricoInicial() {
         return;
     }
     tentativasReconexao01 = 0;
+    logD("HIST", "Carregando histórico de:", path);
     window.db.ref(path + "/pontos").once("value").then(function (snap) {
         historicoTracos01 = [];
         window.__processedTracoKeys = new Set();
+        var count = 0;
         if (snap.exists()) {
             snap.forEach(function (child) {
                 var d = child.val();
                 if (d && Array.isArray(d.p)) {
                     historicoTracos01.push(d.p);
                     window.__processedTracoKeys.add(child.key);
+                    count++;
                 }
             });
         }
+        logD("HIST", "Carregados " + count + " traços, Set size=" + window.__processedTracoKeys.size);
         redrawCanvas();
         escutarTracosNovos();
     }).catch(function (err) { logD("ERRO", "Historico falhou", err); });
@@ -109,19 +119,23 @@ function carregarHistoricoInicial() {
 
 function escutarTracosNovos() {
     var path = getPath();
-    if (!path) return;
-    if (refDesenhoPontos) refDesenhoPontos.off();
+    if (!path) { logD("LISTENER", "path null, listener NÃO configurado"); return; }
+    if (refDesenhoPontos) { refDesenhoPontos.off(); logD("LISTENER", "listener anterior removido"); }
     if (!window.__processedTracoKeys) window.__processedTracoKeys = new Set();
     refDesenhoPontos = window.db.ref(path + "/pontos");
+    logD("LISTENER", "child_added configurado em:", path + "/pontos", "| Set size:", window.__processedTracoKeys.size);
     refDesenhoPontos.on("child_added", function (snap) {
-        if (window.ehDesenhista === true) return;
-        if (window.__processedTracoKeys.has(snap.key)) return;
+        var isDrawer = (window.ehDesenhista === true);
+        var alreadyProcessed = window.__processedTracoKeys.has(snap.key);
+        if (isDrawer) return;
+        if (alreadyProcessed) return;
         var dados = snap.val();
-        if (!dados || !Array.isArray(dados.p)) return;
+        if (!dados || !Array.isArray(dados.p)) { logD("LISTENER", "Traço inválido:", snap.key); return; }
         var pontos = dados.p;
         window.__processedTracoKeys.add(snap.key);
         historicoTracos01.push(pontos);
         if (historicoTracos01.length > 500) historicoTracos01.shift();
+        logD("LISTENER", "Novo traço recebido:", snap.key, "| pontos:", pontos.length, "| total:", historicoTracos01.length);
         for (var i = 1; i < pontos.length; i++) {
             var a = pontos[i - 1], b = pontos[i];
             if (!a || !b) continue;
@@ -199,12 +213,16 @@ function enviarTraco() {
     var path = getPath();
     if (!path || bufferPontos01.length < 2 || window.ehDesenhista !== true) return;
     var traco = bufferPontos01.slice();
+    logD("SEND", "Enviando traço:", traco.length, "pontos");
     var pushRef = window.db.ref(path + "/pontos").push({
         p: traco,
         t: firebase.database.ServerValue.TIMESTAMP,
         autor: window.usuarioIdUnico || null
-    }).catch(function () {});
-    if (pushRef && pushRef.key && window.__processedTracoKeys) window.__processedTracoKeys.add(pushRef.key);
+    }).catch(function (e) { logD("ERRO", "enviarTraco falhou", e); });
+    if (pushRef && pushRef.key && window.__processedTracoKeys) {
+        window.__processedTracoKeys.add(pushRef.key);
+        logD("SEND", "Key adicionada ao Set:", pushRef.key, "| Set size:", window.__processedTracoKeys.size);
+    }
     historicoTracos01.push(traco);
     if (historicoTracos01.length > 500) historicoTracos01.shift();
     bufferPontos01 = [traco[traco.length - 1]];
@@ -329,5 +347,32 @@ function atualizarDescricaoDesenho() {
     __ultimaDescricao = descr;
     el.textContent = descr;
 }
+
+window.recargarDesenho = function () {
+    logD("RELOAD", "recargarDesenho chamado");
+    if (refDesenhoPontos) { refDesenhoPontos.off(); refDesenhoPontos = null; }
+    historicoTracos01 = [];
+    window.__processedTracoKeys = new Set();
+    if (ctx01) ctx01.clearRect(0, 0, canvas01.width, canvas01.height);
+    var path = getPath();
+    if (!path) { logD("RELOAD", "path null, abortando"); return; }
+    logD("RELOAD", "Recarregando de:", path);
+    window.db.ref(path + "/pontos").once("value").then(function (snap) {
+        var count = 0;
+        if (snap.exists()) {
+            snap.forEach(function (child) {
+                var d = child.val();
+                if (d && Array.isArray(d.p)) {
+                    historicoTracos01.push(d.p);
+                    window.__processedTracoKeys.add(child.key);
+                    count++;
+                }
+            });
+        }
+        logD("RELOAD", "Recarregados " + count + " traços, Set size=" + window.__processedTracoKeys.size);
+        redrawCanvas();
+        escutarTracosNovos();
+    }).catch(function (err) { logD("ERRO", "recargarDesenho falhou", err); });
+};
 
 window.addEventListener("load", initDesenho);
