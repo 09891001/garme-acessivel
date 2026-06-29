@@ -210,6 +210,25 @@ document.addEventListener("DOMContentLoaded", function () {
     log("BOOT", "Jogo V10 carregado", window.usuarioIdUnico);
 });
 
+/* --- FAIL-SAFE: UI transition independent of Firebase transaction --- */
+function ocultarTelaEntrada(nome) {
+    var telaEntrada = document.getElementById("telaEntrada");
+    var salaEspera = document.getElementById("salaEspera");
+    var displayUsuario = document.getElementById("displayUsuario");
+    var statusSistema = document.getElementById("statusSistema");
+    var nc = document.getElementById("nomeContainer");
+    var na = document.getElementById("nomeAtual");
+    if (telaEntrada) telaEntrada.style.display = "none";
+    if (salaEspera) salaEspera.style.display = "block";
+    if (displayUsuario && nome) displayUsuario.textContent = nome;
+    if (statusSistema) { statusSistema.textContent = "Conectado"; statusSistema.className = "badge status-online"; }
+    if (nc) nc.style.display = "block";
+    if (na && nome) na.textContent = nome;
+    if (typeof window.LobbyManager !== "undefined" && typeof window.LobbyManager.forcarRender === "function") {
+        window.LobbyManager.forcarRender();
+    }
+}
+
 /* --- ENTRAR NA SALA / LOBBY --- */
 function entrarJogo() {
     var input = document.getElementById("nomeUsuario");
@@ -889,11 +908,14 @@ function aplicarEstadoVisao(estado, game) {
     var gameArea = document.getElementById("areaJogo");
     var telaEntrada = document.getElementById("telaEntrada");
     if (!lobby || !gameArea) return false;
+    /* FAIL-SAFE: Reset visual containers on every state transition */
+    if (typeof window.limparContainerJogo === "function") window.limparContainerJogo();
     if (estado === ESTADO_LOBBY) {
         if (gameArea.style.display !== "none") gameArea.style.display = "none";
+        var lobbySection = document.getElementById("lobby");
+        if (lobbySection) lobbySection.style.display = "block";
         if (lobby.style.display === "none") {
             lobby.style.display = "block";
-            if (telaEntrada && telaEntrada.style.display !== "none") telaEntrada.style.display = "none";
         }
         var _cardV = document.getElementById("cardVoce");
         if (_cardV) _cardV.style.display = "none";
@@ -904,6 +926,8 @@ function aplicarEstadoVisao(estado, game) {
         return true;
     }
     if (estado === ESTADO_GAME) {
+        var lobbySection = document.getElementById("lobby");
+        if (lobbySection) lobbySection.style.display = "none";
         if (lobby.style.display !== "none") lobby.style.display = "none";
         if (gameArea.style.display === "none") {
             gameArea.style.display = "block";
@@ -1218,7 +1242,10 @@ function renderJogo(game) {
     document.getElementById("textoDica").textContent = "Aguardando...";
 
     /* P2: Hide guess input by default — show only during JOGANDO for non-drawers */
-    if (containerChute) containerChute.style.display = "none";
+    if (containerChute) {
+        containerChute.classList.remove("chute-visivel");
+        containerChute.style.display = "";
+    }
 
     if (areaEscolhaDesenho) areaEscolhaDesenho.style.display = "none";
     if (escolhaModo) escolhaModo.style.display = "none";
@@ -1226,13 +1253,30 @@ function renderJogo(game) {
     if (areaEscolhaPalavra) areaEscolhaPalavra.style.display = "none";
     if (areaFimRodada) areaFimRodada.style.display = "none";
 
+    /* Hide all non-essential elements — each state shows only what it needs */
+    var canvasContainer = document.querySelector(".canvas-container");
+    var dicaBox = document.querySelector(".dica-box");
+    var chatBox = document.querySelector(".chat-box");
+    if (canvasContainer) canvasContainer.style.display = "none";
+    if (dicaBox) dicaBox.style.display = "none";
+    if (chatBox) chatBox.style.display = "none";
+
     renderFila(game);
+    /* Hide fila during states where it's not relevant */
+    if (status !== "JOGANDO" && status !== "FIM_RODADA") {
+        var filaBoxEl = document.querySelector(".fila-box");
+        if (filaBoxEl) filaBoxEl.style.display = "none";
+    }
     atualizarCardVoce(game);
+    /* Hide card during states where it clutters the screen */
+    if (status !== "JOGANDO") {
+        if (cardVoce) cardVoce.style.display = "none";
+    }
 
     if (status === "ESCOLHENDO_PALAVRA") {
         /* P1+P9: Clean up previous round artifacts when entering choice phase */
         limparTransicaoRodada();
-        if (elSt) elSt.innerHTML = window.ehDesenhista ? "Escolha a palavra para desenhar" : __nomeExibicao(game.desenhistaId) + '<span class="status-sub">está escolhendo a palavra...</span>';
+        if (elSt) elSt.innerHTML = window.ehDesenhista ? "Escolha a palavra para desenhar" : __nomeExibicao(game.desenhistaId) + ' <span class="status-sub">está escolhendo a palavra...</span>';
         if (window.ehDesenhista && areaEscolhaPalavra) {
             areaEscolhaPalavra.style.display = "block";
             var grid = document.getElementById("opcoesPalavra");
@@ -1255,7 +1299,7 @@ function renderJogo(game) {
     }
 
     if (status === "ESCOLHENDO_MODO") {
-        if (elSt) elSt.innerHTML = window.ehDesenhista ? "Escolha como desenhar: Manual ou Automático" : __nomeExibicao(game.desenhistaId) + '<span class="status-sub">está escolhendo o modo de desenho...</span>';
+        if (elSt) elSt.innerHTML = window.ehDesenhista ? "Escolha como desenhar: Manual ou Automático" : __nomeExibicao(game.desenhistaId) + ' <span class="status-sub">está escolhendo o modo de desenho...</span>';
         if (window.ehDesenhista && areaEscolhaDesenho) {
             areaEscolhaDesenho.style.display = "flex";
             if (escolhaModo) escolhaModo.style.display = "flex";
@@ -1266,6 +1310,10 @@ function renderJogo(game) {
     }
 
     if (status === "JOGANDO") {
+        /* Show elements needed during gameplay */
+        if (canvasContainer) canvasContainer.style.display = "block";
+        if (dicaBox) dicaBox.style.display = "block";
+        if (chatBox) chatBox.style.display = "block";
         /* Só recarregar desenho na TRANSIÇÃO para JOGANDO, não a cada re-render */
         var _statusAnterior = window.__statusAnteriorJogo || "";
         if (_statusAnterior !== "JOGANDO" && typeof window.recargarDesenho === "function") {
@@ -1308,13 +1356,24 @@ function renderJogo(game) {
             });
         }
 
-        /* P2: Show guess input only for non-drawers who haven't guessed */
-        if (!window.ehDesenhista && (!game.acertadores || !game.acertadores[window.usuarioIdUnico])) {
-            if (containerChute) containerChute.style.display = "flex";
-            if (elSt) elSt.innerHTML = "Rodada " + (game.rodada || 1) + " de " + (game.totalRodadas || "?") + '<span class="status-sub">' + __nomeExibicao(game.desenhistaId) + " está desenhando</span>";
+        /* P2: Explicit input visibility — revalidated on every render */
+        if (gameCache01 && gameCache01.desenhistaId === window.usuarioIdUnico) {
+            if (containerChute) {
+                containerChute.classList.remove("chute-visivel");
+                containerChute.style.display = "none";
+            }
         } else if (game.acertadores && game.acertadores[window.usuarioIdUnico]) {
-            if (containerChute) containerChute.style.display = "none";
+            if (containerChute) {
+                containerChute.classList.remove("chute-visivel");
+                containerChute.style.display = "none";
+            }
             if (elSt) elSt.textContent = "Você acertou! Aguarde o fim da rodada.";
+        } else {
+            if (containerChute) {
+                containerChute.classList.add("chute-visivel");
+                containerChute.style.display = "flex";
+            }
+            if (elSt) elSt.innerHTML = "Rodada " + (game.rodada || 1) + " de " + (game.totalRodadas || "?") + '<span class="status-sub">' + __nomeExibicao(game.desenhistaId) + " está desenhando</span>";
         }
 
         /* Narrar transicoes */
@@ -1380,6 +1439,24 @@ function limparTransicaoRodada() {
     if (typeof window.limparQuadroSincronizado === "function") window.limparQuadroSincronizado();
 }
 
+/* FAIL-SAFE: Reset ALL visual containers before every state transition */
+window.limparContainerJogo = function () {
+    var td = document.getElementById("textoDica");
+    if (td) td.textContent = "Aguardando...";
+    var jc = document.getElementById("janelaChat");
+    if (jc) jc.innerHTML = "";
+    var op = document.getElementById("opcoesPalavra");
+    if (op) op.innerHTML = "";
+    var ip = document.getElementById("chutePalavra");
+    if (ip) ip.value = "";
+    var cr = document.getElementById("cronometro");
+    if (cr) cr.textContent = "--:--";
+    var sp = document.getElementById("statusPartida");
+    if (sp) sp.innerHTML = "";
+    var cv = document.querySelector(".card-voce-status");
+    if (cv) cv.textContent = "";
+};
+
 /* --- FIM DE RODADA --- */
 function renderFimRodada(game) {
     limparTransicaoRodada();
@@ -1418,7 +1495,42 @@ function renderFimRodada(game) {
         conteudo.appendChild(pNinguem);
     }
 
-    if (typeof window.narrarFimRodada === "function") window.narrarFimRodada(game.palavra);
+    /* P-Proximo: Show who is the next drawer so nobody gets lost */
+    var filaOrdem = game.filaOrdem || [];
+    var filaIndex = game.filaIndex || 0;
+    var idx = filaIndex + 1;
+    var jogadores = game.jogadores || {};
+    var jogadoresIds = Object.keys(jogadores);
+    var proximoId = null;
+    var proximoNome = "Jogador";
+    for (var _i = 0; _i < filaOrdem.length; _i++) {
+        var _cand = filaOrdem[(idx + _i) % filaOrdem.length];
+        if (jogadoresIds.indexOf(_cand) !== -1) {
+            proximoId = _cand;
+            proximoNome = __resolverNome(_cand, jogadores) || (_cand && jogadores[_cand] && jogadores[_cand].nome) || "Jogador";
+            break;
+        }
+    }
+    if (proximoId && idx < (game.totalRodadas || Infinity)) {
+        var pProximo = document.createElement("p");
+        pProximo.className = "fim-rodada-proximo";
+        pProximo.setAttribute("aria-live", "assertive");
+        var euProximo = (proximoId === window.usuarioIdUnico);
+        pProximo.textContent = euProximo
+            ? "Proximo a desenhar: Voce!"
+            : "Proximo a desenhar: " + proximoNome;
+        conteudo.appendChild(pProximo);
+    }
+
+    /* Narrate next drawer for accessibility */
+    if (proximoId && idx < (game.totalRodadas || Infinity)) {
+        var euProx = (proximoId === window.usuarioIdUnico);
+        var textoProximo = euProx ? "Voce vai desenhar em seguida." : proximoNome + " vai desenhar em seguida.";
+        if (typeof window.narrarFimRodada === "function") window.narrarFimRodada(game.palavra, textoProximo);
+        else if (typeof window.narrarPrioritario === "function") window.narrarPrioritario("Fim da rodada. " + textoProximo);
+    } else {
+        if (typeof window.narrarFimRodada === "function") window.narrarFimRodada(game.palavra);
+    }
     ultimoStatusNarrado = "FIM_RODADA";
 
     /* Focus on round-end heading */
@@ -1430,7 +1542,12 @@ function renderFimRodada(game) {
     if (overlay) {
         var totalSeg = 8;
         overlay.style.display = "flex";
-        overlay.innerHTML = "<span class='count-num'>" + totalSeg + "</span><span class='count-label'>Nova rodada em...</span>";
+        var labelProximo = proximoId
+            ? (idx < (game.totalRodadas || Infinity)
+                ? (euProx ? proximoNome + " (Voce) vai desenhar em..." : proximoNome + " vai desenhar em...")
+                : "Ultima rodada...")
+            : "Nova rodada em...";
+        overlay.innerHTML = "<span class='count-num'>" + totalSeg + "</span><span class='count-label'>" + labelProximo + "</span>";
         var spanNum = overlay.querySelector(".count-num");
         var contadorSeg = totalSeg;
         if (window.__countdownInterval) { clearInterval(window.__countdownInterval); window.__countdownInterval = null; }
@@ -1773,7 +1890,10 @@ function enviarChute() {
             }
 
             var chatContainer = document.getElementById("containerChute");
-            if (chatContainer) chatContainer.style.display = "none";
+            if (chatContainer) {
+                chatContainer.classList.remove("chute-visivel");
+                chatContainer.style.display = "";
+            }
         }
     }).catch(function (e) { log("ERRO", "enviarChute", e); });
 }

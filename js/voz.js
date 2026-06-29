@@ -113,8 +113,10 @@
         }
     };
 
-    window.narrarFimRodada = function (palavra) {
-        window.narrarPrioritario("Rodada encerrada. A palavra era: " + (palavra || "?"));
+    window.narrarFimRodada = function (palavra, textoExtra) {
+        var msg = "Rodada encerrada. A palavra era: " + (palavra || "?");
+        if (textoExtra) msg += " " + textoExtra;
+        window.narrarPrioritario(msg);
     };
 
     window.narrarAcerto = function (nomeJogador) {

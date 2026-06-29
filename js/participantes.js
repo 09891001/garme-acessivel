@@ -45,7 +45,7 @@ var DEBUG_SYNC = true;
 
     /* --- REGISTRO --- */
     function registrar(nome) {
-        if (!nome) return;
+        if (!nome) nome = "Jogador";
         var ref = minhaRef();
         var partRef = window.db.ref(base() + "/participantes");
 
@@ -113,7 +113,7 @@ var DEBUG_SYNC = true;
         }, 10000);
     }
 
-    /* Periodic ghost cleanup — remove ALL offline entries from participantes/ */
+    /* Periodic ghost cleanup — mark stale entries as offline, never delete registered players */
     if (!window.__ghostCleanupInterval) {
         window.__ghostCleanupInterval = setInterval(function () {
             if (!window.__abaVisivel || !window.db) return;
@@ -128,24 +128,19 @@ var DEBUG_SYNC = true;
                     if (!p) return;
                     var lastSeen = p.lastSeen || 0;
                     if (typeof lastSeen !== "number") lastSeen = 0;
-                    /* Remove offline entries (onDisconnect marked them) */
-                    if (p.online === false) {
-                        /* Preserve if lastSeen is very recent (< 5s) — might be reconnecting */
-                        if (lastSeen > 0 && (now - lastSeen) < 5000) return;
-                        updates[uid] = null;
-                    }
                     /* Remove entries with no name (never completed registration) */
-                    else if (!p.nome) {
+                    if (!p.nome) {
                         updates[uid] = null;
                     }
-                    /* Remove ghost: online:true but lastSeen > 15s */
-                    else if (p.online === true && lastSeen > 0 && (now - lastSeen) > 15000) {
+                    /* Mark ghost: online:true but lastSeen > 30s → set offline (never null) */
+                    else if (p.online === true && lastSeen > 0 && (now - lastSeen) > 30000) {
                         updates[uid + "/online"] = false;
                         updates[uid + "/lastSeen"] = firebase.database.ServerValue.TIMESTAMP;
                     }
+                    /* Already offline — do NOT delete, onDisconnect already handled it */
                 });
                 if (Object.keys(updates).length > 0) {
-                    if (DEBUG_SYNC) console.log("[GHOST_PERIODIC]", { removing: Object.keys(updates).length, uids: Object.keys(updates) });
+                    if (DEBUG_SYNC) console.log("[GHOST_PERIODIC]", { updating: Object.keys(updates).length, uids: Object.keys(updates) });
                     partRef.update(updates).catch(function () {});
                 }
             }).catch(function () {});
@@ -203,7 +198,7 @@ var DEBUG_SYNC = true;
         var jogadoresOrdenados = Object.keys(participantes).map(function (uid) {
             return Object.assign({ uid: uid }, participantes[uid]);
         }).filter(function (p) {
-            return p.online === true && p.nome;
+            return p.online === true;
         }).sort(function (a, b) {
             if (a.entrouEm === b.entrouEm) return a.uid.localeCompare(b.uid);
             return (a.entrouEm || 0) - (b.entrouEm || 0);
@@ -233,6 +228,11 @@ var DEBUG_SYNC = true;
         /* When game is not in lobby, skip DOM rendering — update caches only */
         var _gameStatus = (window.gameCache01 && window.gameCache01.status) || "aguardando";
         var _inLobbyNow = !_gameStatus || _gameStatus === "aguardando" || _gameStatus === "FIM_PARTIDA";
+        /* Hide telaEntrada when current player is in the lobby (already entered) */
+        if (_inLobbyNow && _onlineIds.indexOf(window.usuarioIdUnico) !== -1) {
+            var _te = document.getElementById("telaEntrada");
+            if (_te && _te.style.display !== "none") _te.style.display = "none";
+        }
         if (!_inLobbyNow) {
             window.__participantesOnline = _onlineIds;
             var _map = {};
@@ -312,10 +312,10 @@ var DEBUG_SYNC = true;
                 if (uid === window.usuarioIdUnico) return;
                 var p = participantes[uid];
                 if (!p) return;
-                /* Ghost: online:true mas lastSeen > 15s (desconectou sem onDisconnect) */
+                /* Ghost: online:true mas lastSeen > 60s (desconectou sem onDisconnect) */
                 var lastSeen = p.lastSeen || 0;
                 if (typeof lastSeen !== "number") return;
-                if (p.online === true && (now - lastSeen) > 15000) {
+                if (p.online === true && (now - lastSeen) > 60000) {
                     ghostUpdates[uid + "/online"] = false;
                     ghostUpdates[uid + "/lastSeen"] = firebase.database.ServerValue.TIMESTAMP;
                     console.log("[GHOST_CLEANUP]", { uid: uid, nome: p.nome, lastSeen: lastSeen, ageMs: now - lastSeen });
@@ -334,8 +334,9 @@ var DEBUG_SYNC = true;
             /* Single source: online=true AND nome exists, sorted by entrouEm */
             var sortedIds = Object.keys(participantes).filter(function (uid) {
                 var p = participantes[uid];
-                var keep = p && p.online === true && p.nome;
-                if (!keep) console.log("[PARTICIPANTES_DESCARTADO]", { uid: uid, participante: p, motivo: !p ? "null" : !p.online ? "offline" : !p.nome ? "sem_nome" : "?" });
+                var keep = p && p.online === true;
+                if (!keep) console.log("[PARTICIPANTES_DESCARTADO]", { uid: uid, participante: p, motivo: !p ? "null" : !p.online ? "offline" : "?" });
+                if (keep && !p.nome) p.nome = "Jogador";
                 return keep;
             }).sort(function (a, b) {
                 return (participantes[a].entrouEm || 0) - (participantes[b].entrouEm || 0);
